@@ -53,5 +53,4 @@ Timeouts are enforced by the caller. A timed-out `player_count` or `health` is t
 ## Conformance
 
 A new adapter conforms when `tests/features/adapter-<name>.feature` passes at the `@contract` level using the real image on a Docker host, and at the `@e2e` level on the pilot VM. The Valheim file is the reference:
-<!-- TODO-LINK: tests/features/adapter-valheim.feature -->
-../../tests/features/adapter-valheim.feature.
+[adapter-valheim.feature](../../tests/features/adapter-valheim.feature).
