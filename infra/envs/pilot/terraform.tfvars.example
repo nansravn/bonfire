@@ -1,0 +1,12 @@
+subscription_id      = "00000000-0000-0000-0000-000000000000"
+admin_ssh_public_key = "ssh-ed25519 AAAA... bonfire"
+admin_cidr           = "203.0.113.7/32"
+game                 = "valheim"
+game_env = {
+  SERVER_NAME   = "Bonfire"
+  WORLD_NAME    = "Midgard"
+  SERVER_PUBLIC = "true"
+  # SERVER_ARGS = "-crossplay"
+}
+game_password   = "change-me-5-chars-min"
+bonfire_git_ref = "main"
