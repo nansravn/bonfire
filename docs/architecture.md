@@ -171,8 +171,7 @@ Docker owns restarts: every adapter's compose file sets `restart: on-failure:3`,
 
 ## Security notes
 
-<!-- TODO-LINK: contracts/discord.md -->
-- Discord requests are accepted only with a valid Ed25519 signature over timestamp and body (details in contracts/discord.md).
+- Discord requests are accepted only with a valid Ed25519 signature over timestamp and body (details in [contracts/discord.md](contracts/discord.md)).
 - The Function's identity holds Virtual Machine Contributor scoped to the one VM.
 - The VM's managed identity may only deallocate itself.
 - The bot token, webhook URL and game password live in Key Vault and reach code through references, never plain app settings.

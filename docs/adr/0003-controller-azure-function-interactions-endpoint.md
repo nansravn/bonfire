@@ -27,8 +27,7 @@ Rejected. Signature validation and the deferred-response flow need code; a Funct
 
 ## Consequences
 
-<!-- TODO-LINK: contracts/discord.md -->
-- Discord requires an acknowledgement within 3 seconds. Every handler responds with a deferred acknowledgement first, then edits the reply. The exact flow is in contracts/discord.md.
+- Discord requires an acknowledgement within 3 seconds. Every handler responds with a deferred acknowledgement first, then edits the reply. The exact flow is in [contracts/discord.md](../contracts/discord.md).
 - Cold starts on the consumption plan are usually under 3 seconds but not guaranteed; the deferred acknowledgement is sent before any I/O to protect the deadline.
 - The Function has no gateway connection, so it cannot see voice-channel events. A voice trigger (PRD phase 4) would need a separate gateway process.
 - The same pattern is used by CoderCoco/game-server-deploy on AWS Lambda (PRD reference R8).
