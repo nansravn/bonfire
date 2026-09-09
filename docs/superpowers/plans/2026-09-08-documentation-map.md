@@ -428,7 +428,7 @@ The VM must never stay allocated with zero players beyond the idle timeout, and 
 Two cooperating watchdogs:
 
 - **The agent on the VM is primary.** A systemd timer runs every `idle_check_interval` minutes, asks the adapter for `player_count`, and drives the idle timer and warnings. After `idle_timeout_minutes` with zero players it stops the game cleanly and deallocates the VM through the VM's own managed identity.
-- **The Function is the safety net.** A timer trigger every `watchdog_interval_minutes` deallocates the VM when it has been allocated longer than `max_session_hours` or the agent has not written a heartbeat for `heartbeat_stale_minutes`. It never reads the player count.
+- **The Function is the safety net.** A timer trigger every 15 minutes (the `WATCHDOG_INTERVAL_MINUTES` constant) deallocates the VM when it has been allocated longer than `max_session_hours` or the agent has not written a heartbeat for `heartbeat_stale_minutes`. It never reads the player count.
 
 The state table is the contract between them: the agent writes a heartbeat and the last player count on every check; the Function acts only when the agent is silent or the ceiling is exceeded.
 
@@ -679,9 +679,9 @@ Four states. Table of every transition:
 
 | From | To | Trigger | Actor | Lock |
 |---|---|---|---|---|
-| out | igniting | `/bonfire ignite` | Function | takes `lock_until = now + lock_ttl_minutes`; sets `session_id`, `session_started_at` |
+| out | igniting | `/bonfire ignite` | Function | takes `lock_until = now + LOCK_TTL_MINUTES` (5 min); sets `session_id`, `session_started_at` |
 | igniting | lit | adapter `is_ready` succeeds | agent | clears lock |
-| igniting | lit (with `last_health = crashed`) | `ready_timeout_minutes` elapsed without readiness | agent | clears lock |
+| igniting | lit (with `last_health = crashed`) | the adapter's `ready_timeout_minutes` elapsed without readiness | agent | clears lock |
 | igniting | out | reconcile: lock expired and VM power state is deallocated | Function | none |
 | igniting | extinguishing | boot failure: no heartbeat within `heartbeat_stale_minutes` of `state_since` | Function (safety-net timer) | takes lock; sets `session_ended_at`; deallocates directly; posts `watchdog_boot_failed` |
 | lit | extinguishing | `/bonfire extinguish` (confirmed if players online) | Function | takes lock; sets `session_ended_at` |
@@ -713,7 +713,7 @@ Two Mermaid sequence diagrams (`sequenceDiagram`), participants `Player`, `Disco
 5. Function calls Azure to start the VM, records a `command/ignite` event, and edits the reply to the igniting message.
 6. The VM boots; cloud-init starts Docker and the agent timer. The agent runs adapter `install` (if the image is missing) and `start`.
 7. Each check, the agent runs `is_ready`. On success it writes `vm_state = lit`, clears `lock_until`, writes `last_health = ok`, posts the ready message through the webhook, and records a `vm/ready` event with `duration_ms` since `session_started_at`.
-8. If `ready_timeout_minutes` pass first, the agent writes `vm_state = lit`, `last_health = crashed`, clears the lock, posts the ignite-failed message, and records `vm/ignite_failed`.
+8. If the adapter's `ready_timeout_minutes` (from `adapter.json`) pass first, the agent writes `vm_state = lit`, `last_health = crashed`, clears the lock, posts the ignite-failed message, and records `vm/ignite_failed`.
 
 **Idle shutdown**, in this order:
 1. Every `idle_check_interval` minutes the agent runs adapter `player_count` and `health`, then writes `last_heartbeat`, `last_player_count`, `last_health`.
@@ -1018,7 +1018,7 @@ Table `state`, one entity: `PartitionKey = "bonfire"`, `RowKey = "state"`. Every
 
 ### Lock semantics
 
-- Taken by whoever moves to `igniting` or `extinguishing`, set to `now + lock_ttl_minutes`.
+- Taken by whoever moves to `igniting` or `extinguishing`, set to `now + LOCK_TTL_MINUTES` (5 minutes; see [configuration.md](configuration.md#constants)).
 - While `lock_until` is in the future and `vm_state` is `igniting` or `extinguishing`, command handlers do not change state; they reply with the status message.
 - Cleared by the transition out of those states.
 - If `lock_until` is in the past, the state is suspect: the next handler or watchdog tick reconciles it against the VM power state (architecture rule 3).
@@ -1198,7 +1198,7 @@ Placeholders in braces are substituted; everything else is verbatim. Feature fil
 | `warning` | agent | webhook | The bonfire will burn out in {w} min with nobody around. |
 | `idle_cancelled` | agent | webhook | Someone joined — auto-extinguish cancelled. |
 | `idle_shutdown` | agent | webhook | The bonfire burned out after {idle_timeout_minutes} min with no one around. /bonfire ignite to bring it back. |
-| `unknown_alert` | agent | webhook | Player count has been unknown for {unknown_alert_minutes} min. Auto-extinguish is paused; check the server. |
+| `unknown_alert` | agent | webhook | Player count has been unknown for {UNKNOWN_ALERT_MINUTES} min. Auto-extinguish is paused; check the server. |
 | `extinguished_manual` | Function | channel | Bonfire extinguished by {user}. |
 | `confirm_extinguish` | Function | channel, with buttons | {n} players are online. Extinguish anyway? |
 | `extinguished_manual_with_players` | Function | channel | Bonfire extinguished by {user} with {n} players online. |
