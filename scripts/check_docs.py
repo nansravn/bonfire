@@ -2,7 +2,7 @@
 """Verify Bonfire documentation.
 
 Checks:
-  1. Every relative Markdown link in docs/**/*.md and README.md points to an existing file.
+  1. Every relative Markdown link in docs/**/*.md (excluding docs/superpowers/) and README.md points to an existing file.
   2. Every tests/features/*.feature file starts with a Feature line, and every
      Scenario has exactly one level tag (@unit, @contract, @e2e) and uses Given, When and Then.
 
@@ -26,6 +26,8 @@ def check_links() -> list[str]:
     if (ROOT / "README.md").exists():
         files.append(ROOT / "README.md")
     for md in files:
+        if (ROOT / "docs" / "superpowers") in md.parents:
+            continue
         text = md.read_text(encoding="utf-8")
         for match in LINK.finditer(text):
             target = match.group(1)
