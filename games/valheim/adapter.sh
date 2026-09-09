@@ -95,9 +95,18 @@ cmd_backup() {
   [ -n "$world" ] || { log "WORLD_NAME not set in $BONFIRE_GAME_ENV_FILE"; return 1; }
   local src="$BONFIRE_DATA_DIR/config/worlds_local"
   local dst; dst="$BONFIRE_BACKUP_DIR/$(date -u +%Y%m%dT%H%M%SZ)"
-  [ -f "$src/$world.db" ] && [ -f "$src/$world.fwl" ] || { log "world files for $world missing in $src"; return 1; }
-  mkdir -p "$dst"
-  cp -p "$src/$world.db" "$src/$world.fwl" "$dst/"
+  if [ -d "$src/$world" ]; then
+    # Current layout: one directory per world (_main.N.db2, .fwl2, .chunks, chunk files).
+    mkdir -p "$dst"
+    cp -a "$src/$world" "$dst/"
+  elif [ -f "$src/$world.db" ] && [ -f "$src/$world.fwl" ]; then
+    # Legacy layout: a flat .db/.fwl pair.
+    mkdir -p "$dst"
+    cp -p "$src/$world.db" "$src/$world.fwl" "$dst/"
+  else
+    log "no world named $world in $src"
+    return 1
+  fi
   log "backed up $world to $dst"
 }
 

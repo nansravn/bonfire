@@ -3,10 +3,14 @@
 The real container is expensive to bring to "ready" (SteamCMD downloads about
 1 GB the first time), so the game state is session-scoped and reused across
 scenarios. Scenarios that stop the game restart it lazily through ensure_ready().
+The game files under `data/server` are a symlink into
+`~/.cache/bonfire-test/valheim-server` so SteamCMD downloads once; delete that
+directory to force a clean download. Worlds stay per-run.
 """
 import json
 import os
 import pathlib
+import re
 import subprocess
 import sys
 import time
@@ -16,7 +20,7 @@ import pytest
 
 REPO = pathlib.Path(__file__).resolve().parents[2]
 ADAPTER_DIR = REPO / "games" / "valheim"
-IMAGE = "lloesche/valheim-server:latest"
+IMAGE = re.search(r"^\s*image:\s*(\S+)", (ADAPTER_DIR / "docker-compose.yml").read_text(), re.M).group(1)
 CONTAINER = "bonfire-test-valheim-1"
 WORLD = "bonfiretest"
 
@@ -97,8 +101,12 @@ class Adapter:
         return pathlib.Path(self.env["BONFIRE_DATA_DIR"]) / "config" / "worlds_local"
 
     def world_files(self) -> list[pathlib.Path]:
-        d = self.worlds_dir()
-        return [d / f"{WORLD}.db", d / f"{WORLD}.fwl"]
+        """Every file of the world: the current per-world directory, or the legacy .db/.fwl pair."""
+        d = self.worlds_dir() / WORLD
+        if d.is_dir():
+            return sorted(p for p in d.rglob("*") if p.is_file())
+        legacy = [self.worlds_dir() / f"{WORLD}.db", self.worlds_dir() / f"{WORLD}.fwl"]
+        return [p for p in legacy if p.exists()]
 
 
 @pytest.fixture(scope="session")
@@ -126,7 +134,9 @@ def adapter(tmp_path_factory) -> Adapter:
         "COMPOSE_PROJECT_NAME": "bonfire-test",
     }
     (data / "config").mkdir()
-    (data / "server").mkdir()
+    cache = pathlib.Path.home() / ".cache" / "bonfire-test" / "valheim-server"
+    cache.mkdir(parents=True, exist_ok=True)
+    (data / "server").symlink_to(cache)
     a = Adapter(env)
     yield a
     a.run("stop", timeout=300)

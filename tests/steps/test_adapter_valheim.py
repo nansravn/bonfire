@@ -108,14 +108,23 @@ def _(adapter):
 def _(adapter):
     adapter.ensure_started()
     before = adapter.container_state()[1]
-    subprocess.run(["docker", "kill", "--signal=KILL", CONTAINER], check=True, capture_output=True)
-    deadline = time.monotonic() + 60
-    while time.monotonic() < deadline:
-        state = adapter.container_state()
-        if state and state[1] > before:
-            return
-        time.sleep(1)
-    raise AssertionError("Docker did not restart the container within 60 s")
+    # Docker treats `docker kill` as a manual stop and ignores the restart policy, so
+    # switch the policy to `always` and stop the container's init from inside: Docker
+    # then restarts it and RestartCount grows, which is what health observes.
+    subprocess.run(["docker", "update", "--restart=always", CONTAINER], check=True, capture_output=True)
+    stop = subprocess.run(["docker", "exec", CONTAINER, "supervisorctl", "shutdown"], capture_output=True)
+    if stop.returncode != 0:
+        subprocess.run(["docker", "exec", CONTAINER, "kill", "-TERM", "1"], check=True, capture_output=True)
+    try:
+        deadline = time.monotonic() + 180
+        while time.monotonic() < deadline:
+            state = adapter.container_state()
+            if state and state[1] > before:
+                return
+            time.sleep(2)
+        raise AssertionError("Docker did not restart the container within 180 s")
+    finally:
+        subprocess.run(["docker", "update", "--restart=on-failure:3", CONTAINER], capture_output=True)
 
 
 @given("the container has exited after three failed restarts")
@@ -137,18 +146,18 @@ def _(adapter):
 def _(adapter):
     adapter.ensure_ready()
     deadline = time.monotonic() + 300
-    while time.monotonic() < deadline and not any(p.exists() for p in adapter.world_files()):
+    while time.monotonic() < deadline and not adapter.world_files():
         time.sleep(5)
-    assert any(p.exists() for p in adapter.world_files()), "no world file after 5 min"
+    assert adapter.world_files(), "no world file after 5 min"
     return time.time()
 
 
 @given("a world file exists in BONFIRE_DATA_DIR")
 def _(adapter):
-    if not all(p.exists() for p in adapter.world_files()):
+    if not adapter.world_files():
         adapter.ensure_ready()
-        assert adapter.run("stop", timeout=300).rc == 0  # a clean stop writes both files
-    assert all(p.exists() for p in adapter.world_files())
+        assert adapter.run("stop", timeout=300).rc == 0  # a clean stop writes the world out
+    assert adapter.world_files()
 
 
 # Whens --------------------------------------------------------------------
@@ -201,15 +210,16 @@ def _(adapter):
 
 @then("the world file was modified after stop began")
 def _(adapter, stop_began):
-    assert any(p.exists() and p.stat().st_mtime >= stop_began - 1 for p in adapter.world_files())
+    assert any(p.stat().st_mtime >= stop_began - 1 for p in adapter.world_files())
 
 
 @then("BONFIRE_BACKUP_DIR contains a copy of every world file")
 def _(adapter):
     runs = sorted(pathlib.Path(adapter.env["BONFIRE_BACKUP_DIR"]).iterdir())
     assert runs, "no backup directory created"
+    run = runs[-1]
     for src in adapter.world_files():
-        copy = runs[-1] / src.name
+        copy = run / src.relative_to(adapter.worlds_dir())
         assert copy.exists() and copy.stat().st_size == src.stat().st_size
 
 
