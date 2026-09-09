@@ -86,10 +86,14 @@ runcmd:
   # Data disk at LUN 0: format only if empty, mount at /data by label.
   - |
     DEV=/dev/disk/azure/scsi1/lun0
+    i=0
+    until [ -e "$DEV" ] || [ "$i" -ge 60 ]; do sleep 10; i=$((i + 1)); done
+    if [ ! -e "$DEV" ]; then echo "bonfire: data disk $DEV not attached after 10 min" >&2; exit 1; fi
     if ! blkid "$DEV" >/dev/null 2>&1; then mkfs.ext4 -L bonfiredata "$DEV"; fi
     mkdir -p /data
     grep -q ' /data ' /etc/fstab || echo "LABEL=bonfiredata /data ext4 defaults,nofail 0 2" >> /etc/fstab
     mount -a
+    if ! mountpoint -q /data; then echo "bonfire: /data is not mounted; refusing to continue" >&2; exit 1; fi
     mkdir -p /data/${game}/config /data/${game}/server /data/backup-staging/${game}
   # Repository, A2S helper environment, runtime directory.
   - git clone ${repo_url} /opt/bonfire
