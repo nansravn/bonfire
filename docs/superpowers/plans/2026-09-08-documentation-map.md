@@ -32,18 +32,18 @@ The spec fixed the document set. Writing precise contracts required choices the 
 
 | # | Decision | Lands in |
 |---|---|---|
-| D1 | Adapters declare ports in `ports.json`, not `ports.tf`. Terraform cannot load a `.tf` file or module by variable name; it can `jsondecode(file(...))` a JSON file selected by `var.game`. | adapter-interface.md, ADR 0006 |
-| D2 | The agent marks `igniting → lit` when `is_ready` succeeds and posts the ready message. The Function cannot reach the adapter, so only the agent knows readiness. | architecture.md |
-| D3 | Manual extinguish goes through the agent: the Function sets `vm_state = extinguishing`, and the agent's next check (within one minute) runs the adapter's `stop` for a clean save, then deallocates. Only the safety net deallocates directly. | architecture.md |
-| D4 | Whoever observes deallocation complete writes `out` and adds session hours. Any Function handler that finds an expired lock first reconciles `vm_state` against the VM power state before acting. | architecture.md, data-schema.md |
-| D5 | State row gains `session_id`, `session_started_at`, `session_ended_at`, `unknown_since`, `unknown_alerted`, `last_health`, `crash_restarts`, `hours_month`, `pending_command`. `last_player_count` is `-1` when unknown. | data-schema.md |
+| D1 | Adapters declare game metadata in `adapter.json`: the ports Terraform opens plus two game-specific tunables, `stop_grace_seconds` and `ready_timeout_minutes`. Terraform cannot load a `.tf` file or module by variable name, but it can `jsondecode(file(...))` a JSON file selected by `var.game`. | ADR 0006, adapter-interface.md, configuration.md |
+| D2 | The agent marks `igniting → lit` when `is_ready` succeeds and posts the ready message, because only the agent can reach the adapter. If no heartbeat arrives within `heartbeat_stale_minutes` of ignite, the safety net treats the boot as failed, deallocates, and posts `watchdog_boot_failed`. | architecture.md, watchdog.feature |
+| D3 | Manual extinguish goes through the agent for a clean save: the Function sets `vm_state = extinguishing`, and the agent's next check runs adapter `stop`, then deallocates. Every handler and the safety-net timer reconcile against the VM power state whenever `vm_state` is `extinguishing`; if the lock has expired and the VM is still running, the Function deallocates directly. | architecture.md, extinguish.feature |
+| D4 | Whoever observes deallocation complete writes `out` and adds `session_ended_at − session_started_at` to the month's hours. `igniting` is reconciled only after lock expiry. | architecture.md, data-schema.md |
+| D5 | Every state-row write is a full-entity Replace with If-Match; a null field is written by omitting the property. The row gains `session_id`, `session_started_at`, `session_ended_at`, `unknown_since`, `unknown_alerted`, `last_health`, `ceiling_warned`, `hours_month`, `pending_command`. `last_player_count` is `-1` when unknown. | data-schema.md |
 | D6 | Events partition key is `/month` (`YYYY-MM`). Action enum extended beyond the PRD list to cover every notification in PRD 7.4. | data-schema.md |
-| D7 | Replies to ignite, extinguish and restart are always in channel, including redundant-command status replies. Replies to check and cost are always ephemeral. Every handler responds with a deferred acknowledgement first. | discord.md |
+| D7 | Every reply is in channel, so "is it up?" is answered for everyone. The only ephemeral message is `confirm_not_yours`. Every handler responds with a deferred acknowledgement first. | discord.md |
 | D8 | The extinguish confirmation is the deferred public reply itself, carrying Extinguish and Cancel buttons. Only the requester may click; the prompt expires after 2 minutes. | discord.md |
-| D9 | The session ceiling extinguishes regardless of player count, exactly as PRD 6.4 states. This is the one path that can disconnect a player. | watchdog.feature, ADR 0004 |
-| D10 | Crash handling: on `health = crashed` the agent runs `start` again, up to `max_crash_restarts` (3) per session, then gives up and notifies. | architecture.md, discord.md |
-| D11 | Configuration adds nine variables beyond PRD 6.7 whose values the PRD already states in prose (heartbeat staleness, watchdog interval, unknown alert, ready timeout, stop grace, max players, crash restarts, lock TTL, cost rates). | configuration.md |
-| D12 | `restart` is delivered to the agent through `pending_command` in the state row, which the agent reads every check. | architecture.md, data-schema.md |
+| D9 | The session ceiling extinguishes regardless of player count, as PRD 6.4 states, but announces itself one hour ahead with `watchdog_ceiling_warning`. PRD section 8 gains "except the announced session ceiling". | watchdog.feature, ADR 0004, prd.md |
+| D10 | Docker owns crash restarts: adapter compose files set `restart: on-failure:3`. The agent only observes `health`, posting `crash` when it leaves `ok` and `crash_gave_up` when it reaches `crashed`; it never restarts the game itself. Recovery is `/bonfire restart`. | adapter-interface.md, architecture.md, discord.md |
+| D11 | Eight Terraform variables: the PRD's four timings plus `game`, `heartbeat_stale_minutes`, `vm_hourly_usd`, `fixed_monthly_usd`. Three documented constants (watchdog interval 15 min, unknown alert 60 min, lock TTL 5 min). Two per-adapter values in `adapter.json`. No `max_players`: status messages say "{n} players online". | configuration.md, discord.md |
+| D12 | `restart` is delivered through `pending_command` in the state row, which the agent reads every check, and is accepted only while `lit`. | architecture.md, data-schema.md, discord.md |
 | D13 | A checker script `scripts/check_docs.py` enforces link resolution and feature-file structure. It is the only code this plan adds. | Task 1 |
 
 ---
@@ -445,7 +445,7 @@ Rejected. A hung VM or a crashed agent would stay allocated indefinitely.
 ## Consequences
 
 - Two code paths must be tested: the agent's idle logic and the Function's ceiling and heartbeat checks. Feature files `idle-shutdown.feature` and `watchdog.feature` cover them.
-- The "unknown never extinguishes" rule applies to the agent only. The safety net's ceiling is absolute and can disconnect players; PRD section 11 counts any safety-net trigger as an agent bug to fix.
+- The "unknown never extinguishes" rule applies to the agent only. The safety net's ceiling is absolute and can disconnect players, which is why it is announced one hour ahead; PRD section 11 counts any safety-net trigger as an agent bug to fix.
 - The agent needs a managed identity with permission to deallocate its own VM, and the Function needs the same permission on that VM (Terraform `iam` module).
 - The query port stays closed to the internet in v1; only the agent queries, on the loopback address.
 ```
@@ -489,7 +489,7 @@ MSG
 - Modify: `docs/adr/README.md` (add two index rows)
 
 **Interfaces:**
-- Consumes: the ADR template; PRD sections 6.5 and 6.6; decision D1 (`ports.json`).
+- Consumes: the ADR template; PRD sections 6.5 and 6.6; decision D1 (`adapter.json`).
 - Produces: two ADRs; the repository layout tree that `docs/architecture.md` (Task 5) reproduces.
 
 - [ ] **Step 1: Write ADR 0005**
@@ -558,7 +558,7 @@ Terraform provisions every Azure resource. The repository is laid out so that ea
 ```
 infra/
   modules/
-    network/     vnet, subnet, nsg (rules from the adapter's ports.json), static public IP (Standard)
+    network/     vnet, subnet, nsg (rules from the adapter's adapter.json), static public IP (Standard)
     vm/          D4as v5, Premium OS disk, separate data disk, managed identity, cloud-init
     controller/  function app (consumption), storage account, table, app settings
     data/        cosmos serverless, events container (ttl = 90 days)
@@ -570,7 +570,7 @@ games/
   <name>/
     docker-compose.yml
     adapter.sh
-    ports.json
+    adapter.json
 ```
 
 Cloud-init clones the repository, installs Docker, and brings up the configured adapter. Saves live on the data disk, which carries `prevent_destroy = true`.
@@ -587,7 +587,7 @@ Rejected. Not reproducible from scratch; the PRD's "VM is disposable" goal depen
 
 ## Consequences
 
-- Adapters declare their ports in `ports.json`, not a `.tf` file: Terraform cannot select a `.tf` file or module source by variable, but it can `jsondecode(file("${path.root}/../../games/${var.game}/ports.json"))`.
+- Adapters declare their ports in `adapter.json`, not a `.tf` file: Terraform cannot select a `.tf` file or module source by variable, but it can read `jsondecode(file("${path.root}/../../games/${var.game}/adapter.json")).ports`.
 - Terraform needs a state backend. The pilot uses an `azurerm` backend in a small bootstrap storage account created once outside Terraform; the Phase 0 spec details the bootstrap.
 - Configuration values flow from Terraform variables to Function app settings and the agent's environment file; the mapping is in [contracts/configuration.md](../contracts/configuration.md).
 - Destroying and re-creating the VM keeps the data disk and its saves.
@@ -652,7 +652,7 @@ Then one subsection per component, each a single paragraph naming what it owns a
 
 - **Function** (Azure Functions, consumption plan). Owns: the Discord Interactions Endpoint (slash commands and button clicks), the safety-net timer, and every transition it is allowed to make in the state machine below. Depends on: the state table, the events container, the Azure Compute API for the VM, Key Vault for the bot token. Never talks to the adapter. See [ADR 0003](adr/0003-controller-azure-function-interactions-endpoint.md).
 - **Agent** (a service on the VM, run by a systemd timer every `idle_check_interval` minutes). Owns: readiness detection, the idle timer and warnings, heartbeat, crash restarts, executing `pending_command`, clean stop and self-deallocation. Depends on: the adapter CLI, the state table, the events container, the Discord webhook URL, the VM's managed identity. See [ADR 0004](adr/0004-watchdog-local-agent-primary-function-safety-net.md).
-- **Adapter** (a directory under `games/<name>/`: compose file, `adapter.sh`, `ports.json`). Owns: everything game-specific. Depends on: Docker and the data disk. Contract in [contracts/adapter-interface.md](contracts/adapter-interface.md).
+- **Adapter** (a directory under `games/<name>/`: compose file, `adapter.sh`, `adapter.json`). Owns: everything game-specific. Depends on: Docker and the data disk. Contract in [contracts/adapter-interface.md](contracts/adapter-interface.md).
 - **Terraform** (`infra/`). Owns: provisioning only. Never starts or stops the VM after apply. See [ADR 0006](adr/0006-infrastructure-as-code-terraform.md).
 
 ```markdown
@@ -683,19 +683,20 @@ Four states. Table of every transition:
 | igniting | lit | adapter `is_ready` succeeds | agent | clears lock |
 | igniting | lit (with `last_health = crashed`) | `ready_timeout_minutes` elapsed without readiness | agent | clears lock |
 | igniting | out | reconcile: lock expired and VM power state is deallocated | Function | none |
+| igniting | extinguishing | boot failure: no heartbeat within `heartbeat_stale_minutes` of `state_since` | Function (safety-net timer) | takes lock; sets `session_ended_at`; deallocates directly; posts `watchdog_boot_failed` |
 | lit | extinguishing | `/bonfire extinguish` (confirmed if players online) | Function | takes lock; sets `session_ended_at` |
 | lit | extinguishing | idle timeout reached | agent | takes lock; sets `session_ended_at` |
 | lit | extinguishing | safety net: session ceiling or missing heartbeat | Function | takes lock; sets `session_ended_at`; deallocates directly |
 | extinguishing | (deallocating) | agent observes `extinguishing` on its check | agent | runs adapter `stop`, then deallocates the VM |
 | extinguishing | out | VM power state observed deallocated | Function (handler after lock expiry, or safety-net timer) | clears lock; adds `session_ended_at - session_started_at` to `hours_this_month`; clears session fields |
 | out | out | drift: VM power state running, no heartbeat for `heartbeat_stale_minutes` | Function timer deallocates | none |
-| lit | lit | `/bonfire restart` | Function writes `pending_command = restart`; agent runs adapter `stop` then `start` and clears it | none |
+| lit | lit | `/bonfire restart` (accepted only while `lit`; otherwise the status reply) | Function writes `pending_command = restart`; agent runs adapter `stop` then `start` and clears it | none |
 
 Rules stated after the table:
 
 1. Only the actor in the table may make that transition. Anyone else that observes an inconsistent state reconciles as described in the two reconcile rows.
 2. Every write to the state row is conditional on the ETag read moments before. A 412 means re-read and re-evaluate; never overwrite blindly.
-3. A handler that finds `lock_until` in the past reconciles `vm_state` against the VM power state before acting: deallocated means `out`; running with a heartbeat in the last `heartbeat_stale_minutes` means `lit`; running without one means the safety net rules apply.
+3. Reconciliation. Whenever `vm_state` is `extinguishing`, and whenever it is `igniting` with `lock_until` in the past, a handler or the safety-net timer reads the VM power state before acting. Deallocated means `out` (adding the session hours). Running while `extinguishing` with an expired lock means the agent is presumed dead: the Function deallocates directly. Running while `igniting` with a heartbeat in the last `heartbeat_stale_minutes` means `lit`; running with no heartbeat at all for `heartbeat_stale_minutes` since `state_since` is a boot failure (row above). A member who runs `ignite` within a minute of a burn-out therefore either waits out the deallocation with `status_extinguishing` or, once the VM is off, proceeds normally.
 4. Manual extinguish goes through the agent so the game saves cleanly. Only the safety net, which by definition has no working agent, deallocates without a clean stop.
 
 ```markdown
@@ -707,7 +708,7 @@ Two Mermaid sequence diagrams (`sequenceDiagram`), participants `Player`, `Disco
 **Ignite**, in this order:
 1. Player runs `/bonfire ignite`; Discord POSTs the interaction to the Function.
 2. Function validates the signature and immediately responds with a deferred acknowledgement (in channel).
-3. Function reads the state row. If `lock_until` is past, it reconciles (rule 3). If `vm_state` is not `out`, it edits the reply with the status message and stops.
+3. Function reads the state row and reconciles when rule 3 applies. If `vm_state` is not `out`, it edits the reply with the status message and stops.
 4. Function writes `vm_state = igniting`, `state_since`, `session_id`, `session_started_at`, `lock_until` with If-Match. On 412 it re-reads and returns to step 3.
 5. Function calls Azure to start the VM, records a `command/ignite` event, and edits the reply to the igniting message.
 6. The VM boots; cloud-init starts Docker and the agent timer. The agent runs adapter `install` (if the image is missing) and `start`.
@@ -725,7 +726,7 @@ Two Mermaid sequence diagrams (`sequenceDiagram`), participants `Player`, `Disco
 ## Crash handling
 ```
 
-On `health = crashed` while `lit`: the agent increments `crash_restarts`, posts the crash message, runs adapter `start`, and waits for `is_ready` as in ignite step 7. When `crash_restarts` exceeds `max_crash_restarts`, it posts the give-up message and stops restarting; `player_count` will return unknown, so the idle timer never fires, and the session ceiling ends the session.
+Docker owns restarts: every adapter's compose file sets `restart: on-failure:3`, so a crashed game comes back without the agent's help, and a crash loop stops after three attempts. The agent only observes. On each check it compares the adapter's `health` with `last_health`: when it moves from `ok` to `degraded` or `crashed` it posts the `crash` message and records a `game/crash` event; when it reaches `crashed` (the container has exited and Docker has given up) it posts `crash_gave_up` and records `game/crash_gave_up`, once per streak. While the game is down `player_count` returns unknown, so the idle timer never fires; the session ends by `/bonfire extinguish`, `/bonfire restart`, or the session ceiling.
 
 ```markdown
 ## Glossary
@@ -737,7 +738,7 @@ Definitions, one line each: **out** (VM deallocated), **igniting** (VM starting,
 ## Security notes
 ```
 
-Five bullets: Discord requests are accepted only with a valid Ed25519 signature over timestamp and body (details in [contracts/discord.md](contracts/discord.md)); the Function's identity holds Virtual Machine Contributor scoped to the one VM; the VM's managed identity may only deallocate itself; the bot token, webhook URL and game password live in Key Vault and reach code through references, never plain app settings; the NSG opens only the ports in the adapter's `ports.json`, and the query port is never opened in v1.
+Five bullets: Discord requests are accepted only with a valid Ed25519 signature over timestamp and body (details in [contracts/discord.md](contracts/discord.md)); the Function's identity holds Virtual Machine Contributor scoped to the one VM; the VM's managed identity may only deallocate itself; the bot token, webhook URL and game password live in Key Vault and reach code through references, never plain app settings; the NSG opens only the ports in the adapter's `adapter.json`, and the query port is never opened in v1.
 
 - [ ] **Step 2: Verify structure and links**
 
@@ -796,7 +797,7 @@ An adapter is everything Bonfire knows about one game. The core never inspects a
 |---|---|
 | `docker-compose.yml` | The game server image and its configuration. Must mount `${BONFIRE_DATA_DIR}` for saves. |
 | `adapter.sh` | Executable implementing the subcommands below. Bash; may call other tools it installs. |
-| `ports.json` | Ports Terraform opens in the NSG. Shape: `[{"port": 2456, "proto": "udp"}, {"port": 2457, "proto": "udp"}]`. `proto` is `udp` or `tcp`. |
+| `adapter.json` | Game metadata read by Terraform and the agent. Shape: `{"ports": [{"port": 2456, "proto": "udp"}, {"port": 2457, "proto": "udp"}], "stop_grace_seconds": 60, "ready_timeout_minutes": 10}`. `proto` is `udp` or `tcp`; the first port is the one players connect to. |
 | `README.md` | Game-specific notes: image, known issues, how player count is obtained. |
 
 ## Environment
@@ -809,7 +810,7 @@ The agent sets these before every invocation and runs `adapter.sh` with `BONFIRE
 | `BONFIRE_ADAPTER_DIR` | Absolute path of `games/<name>/` | `/opt/bonfire/games/valheim` |
 | `BONFIRE_DATA_DIR` | Persistent save directory on the data disk | `/data/valheim` |
 | `BONFIRE_BACKUP_DIR` | Staging directory `backup` copies into | `/data/backup-staging/valheim` |
-| `BONFIRE_STOP_GRACE_SECONDS` | Seconds `stop` may wait for a clean save | `60` |
+| `BONFIRE_STOP_GRACE_SECONDS` | Seconds `stop` may wait for a clean save; the agent copies it from `adapter.json` | `60` |
 | `BONFIRE_PUBLIC_ADDRESS` | Address players connect to | `191.0.2.10:2456` |
 
 Game secrets (server password and the like) are provided in `/etc/bonfire/<name>.env`, which the agent sources before invoking the adapter. Its variable names are the adapter's own; the file is written at boot from Key Vault.
@@ -825,7 +826,7 @@ Every subcommand writes diagnostics to stderr only. Stdout carries only the valu
 | `stop` | Stop with a clean save. Must wait up to `BONFIRE_STOP_GRACE_SECONDS` for the save before forcing. | none | 0 stopped, 1 failed | grace + 60 s | yes |
 | `is_ready` | Report whether the game accepts connections | none | 0 ready, 1 not ready, 2 cannot tell | 10 s | yes |
 | `player_count` | Report connected players | one line: a non-negative integer, or `unknown` | 0 printed a value, 1 failed | 10 s | yes |
-| `health` | Report process health | one line: `ok`, `degraded` or `crashed` | 0 printed a value, 1 failed | 10 s | yes |
+| `health` | Report process health: `ok` when the container is running; `degraded` when Docker is restarting it or has restarted it since the previous call; `crashed` when it has exited and Docker no longer restarts it | one line: `ok`, `degraded` or `crashed` | 0 printed a value, 1 failed | 10 s | yes |
 | `backup` | Copy saves into `BONFIRE_BACKUP_DIR` | none | 0 copied, 1 failed | 5 min | yes |
 
 Timeouts are enforced by the caller. A timed-out `player_count` or `health` is treated as `unknown`; a timed-out anything else is a failure.
@@ -836,6 +837,7 @@ Timeouts are enforced by the caller. A timed-out `player_count` or `health` is t
 2. `start` then `is_ready` in a loop is the readiness protocol. `start` alone proves nothing.
 3. `stop` must be called before deallocating whenever the agent is alive. Deallocating without `stop` loses unsaved progress.
 4. Callers pass no arguments beyond the subcommand. Configuration reaches the adapter only through the environment.
+5. Docker owns crash restarts. The compose file sets `restart: on-failure:3` on the game service; the agent never calls `start` in response to `health`, only on ignite or `/bonfire restart`.
 
 ## Conformance
 
@@ -889,23 +891,35 @@ Every tunable is a Terraform variable. Terraform writes it to the Function's app
 
 | Terraform variable | Setting / env name | Type | Default | Validation |
 |---|---|---|---|---|
-| `game` | `BONFIRE_GAME` | string | `valheim` | `games/<game>/adapter.sh` exists |
+| `game` | `BONFIRE_GAME` | string | `valheim` | `games/<game>/adapter.sh` and `adapter.json` exist |
 | `idle_timeout_minutes` | `BONFIRE_IDLE_TIMEOUT_MINUTES` | number | 45 | > `idle_check_interval` |
 | `idle_warning_minutes` | `BONFIRE_IDLE_WARNING_MINUTES` | list(number) → `15,5` | `[15, 5]` | strictly descending; each < `idle_timeout_minutes` and > `idle_check_interval` |
 | `idle_check_interval` | `BONFIRE_IDLE_CHECK_INTERVAL` | number (minutes) | 1 | ≥ 1 |
-| `max_session_hours` | `BONFIRE_MAX_SESSION_HOURS` | number | 12 | ≥ 1 |
-| `heartbeat_stale_minutes` | `BONFIRE_HEARTBEAT_STALE_MINUTES` | number | 20 | ≥ 3 × `idle_check_interval` |
-| `watchdog_interval_minutes` | `BONFIRE_WATCHDOG_INTERVAL_MINUTES` | number | 15 | < `heartbeat_stale_minutes` |
-| `unknown_alert_minutes` | `BONFIRE_UNKNOWN_ALERT_MINUTES` | number | 60 | ≥ `idle_check_interval` |
-| `ready_timeout_minutes` | `BONFIRE_READY_TIMEOUT_MINUTES` | number | 5 | ≥ 1 |
-| `stop_grace_seconds` | `BONFIRE_STOP_GRACE_SECONDS` | number | 60 | ≥ 0 |
-| `lock_ttl_minutes` | `BONFIRE_LOCK_TTL_MINUTES` | number | 5 | ≥ `ready_timeout_minutes` is not required; ≥ 1 |
-| `max_players` | `BONFIRE_MAX_PLAYERS` | number | 5 | ≥ 1 |
-| `max_crash_restarts` | `BONFIRE_MAX_CRASH_RESTARTS` | number | 3 | ≥ 0 |
+| `max_session_hours` | `BONFIRE_MAX_SESSION_HOURS` | number | 12 | ≥ 2, so the ceiling warning at `max_session_hours − 1` is after ignite |
+| `heartbeat_stale_minutes` | `BONFIRE_HEARTBEAT_STALE_MINUTES` | number | 20 | ≥ 3 × `idle_check_interval`; > 15 (the watchdog interval) |
 | `vm_hourly_usd` | `BONFIRE_VM_HOURLY_USD` | number | 0.28 | > 0 |
 | `fixed_monthly_usd` | `BONFIRE_FIXED_MONTHLY_USD` | number | 18 | ≥ 0 |
 
-The four timing variables at the top are the ones the PRD names in section 6.7; the rest carry values the PRD states in prose (sections 6.4, 7.2, 7.3, 8, 10, 12).
+The first five are the timings PRD section 6.7 names plus the game selector. `heartbeat_stale_minutes` is the value PRD 6.4 states in prose. The two cost rates serve `/bonfire cost` (PRD section 10).
+
+## Constants
+
+Fixed in code and documented here; changing one is a code change, not a deploy setting.
+
+| Constant | Value | Where it applies |
+|---|---|---|
+| `WATCHDOG_INTERVAL_MINUTES` | 15 | The safety-net timer trigger's schedule |
+| `UNKNOWN_ALERT_MINUTES` | 60 | The agent posts `unknown_alert` after this long of `unknown` |
+| `LOCK_TTL_MINUTES` | 5 | `lock_until = now + 5 min` on every transition into `igniting` or `extinguishing` |
+
+## Per-adapter settings
+
+Two values differ per game and live in the adapter's `adapter.json` (see [adapter-interface.md](adapter-interface.md)), not in Terraform. The agent reads them at startup and exports `BONFIRE_STOP_GRACE_SECONDS` to the adapter.
+
+| Key in `adapter.json` | Valheim value | Meaning |
+|---|---|---|
+| `stop_grace_seconds` | 60 | How long `stop` may wait for a clean save |
+| `ready_timeout_minutes` | 10 | How long the agent waits for `is_ready` after `start` before declaring ignite failed; Valheim's first world generation can take several minutes |
 
 ## Derived settings
 
@@ -913,7 +927,7 @@ Terraform computes these from resources it creates; they are not variables.
 
 | Setting / env name | Value | Read by |
 |---|---|---|
-| `BONFIRE_PUBLIC_ADDRESS` | `<static ip>:<first port in ports.json>` | agent, Function |
+| `BONFIRE_PUBLIC_ADDRESS` | `<static ip>:<first port in adapter.json>` | agent, Function |
 | `BONFIRE_VM_RESOURCE_ID` | Resource ID of the game VM | agent, Function |
 | `BONFIRE_STATE_TABLE_ENDPOINT` | Table service endpoint of the controller storage account | agent, Function |
 | `BONFIRE_EVENTS_ENDPOINT` | Cosmos account endpoint | agent, Function |
@@ -942,7 +956,7 @@ Turn the plain-text `contracts/configuration.md` back into `[contracts/configura
 - [ ] **Step 3: Verify**
 
 Run: `python3 scripts/check_docs.py && grep -c '^| `' docs/contracts/configuration.md`
-Expected: `OK` and a count of 24 table rows (15 variables + 6 derived + 3 secrets).
+Expected: `OK` and a count of 22 table rows (8 variables + 3 constants + 2 per-adapter + 6 derived + 3 secrets).
 
 - [ ] **Step 4: Commit**
 
@@ -980,7 +994,7 @@ Two stores: one Table Storage row for operational state, one Cosmos container fo
 
 ## Table Storage: `state`
 
-Table `state`, one entity: `PartitionKey = "bonfire"`, `RowKey = "state"`. Every write is conditional on the ETag from the preceding read (If-Match). On HTTP 412 the writer re-reads and re-evaluates; it never retries the same write.
+Table `state`, one entity: `PartitionKey = "bonfire"`, `RowKey = "state"`. Every write replaces the whole entity (Replace, never Merge) and is conditional on the ETag from the preceding read (If-Match). On HTTP 412 the writer re-reads and re-evaluates; it never retries the same write. Table Storage has no null: a null field below is written by omitting the property, and readers treat an absent property as null.
 
 | Field | Type | Meaning | Written by | Read by |
 |---|---|---|---|---|
@@ -996,8 +1010,8 @@ Table `state`, one entity: `PartitionKey = "bonfire"`, `RowKey = "state"`. Every
 | `last_heartbeat` | datetime or null | Time of the agent's last check | agent | Function (watchdog) |
 | `last_player_count` | int32 | Last count; `-1` when unknown | agent | Function (check, extinguish confirmation) |
 | `last_health` | string: `ok`, `degraded`, `crashed`, `unknown` | Last adapter `health` | agent | Function (check reply) |
-| `crash_restarts` | int32 | Restarts attempted this session | agent; reset to 0 on ignite by Function | agent |
-| `pending_command` | string or null: `restart` | Command for the agent to run on its next check | Function sets; agent clears | agent |
+| `ceiling_warned` | bool | Whether `watchdog_ceiling_warning` was posted this session | Function; reset to false on ignite | Function |
+| `pending_command` | string or null: `restart` | Command for the agent to run on its next check; set only while `vm_state` is `lit` | Function sets; agent clears | agent |
 | `hours_this_month` | double | Lit hours accumulated in `hours_month` | whoever writes `out` | Function (cost reply) |
 | `hours_month` | string `YYYY-MM` | Month `hours_this_month` belongs to; on mismatch with the current month, reset hours to 0 before adding | whoever writes `out` | Function |
 | `lock_until` | datetime or null | Transition lock; see below | Function, agent | everyone |
@@ -1040,8 +1054,8 @@ Database `bonfire`, container `events`, partition key `/month`, default TTL 7776
 |---|---|
 | `command` | `ignite`, `extinguish`, `check`, `cost`, `restart`, `keep_lit` |
 | `vm` | `ready`, `ignite_failed`, `deallocated` |
-| `watchdog` | `warning`, `idle_cancelled`, `idle_shutdown`, `unknown_alert`, `ceiling`, `heartbeat_missing` |
-| `game` | `crash`, `restarted`, `crash_gave_up` |
+| `watchdog` | `warning`, `idle_cancelled`, `idle_shutdown`, `unknown_alert`, `ceiling_warning`, `ceiling`, `heartbeat_missing`, `boot_failed` |
+| `game` | `crash`, `crash_gave_up` |
 
 ### Examples
 
@@ -1088,7 +1102,7 @@ The PRD section 11 metrics map to these queries, all filtered by `month`:
 - Sessions ignited by non-admin: `command/ignite` with `ok = true`, grouped by `actor`.
 - Ignite-to-ready: `vm/ready` `duration_ms`, 95th percentile.
 - Idle hours: sum over sessions of (`idle_shutdown.ts` minus the `idle_since` recorded in `detail`), versus `hours_this_month`.
-- Safety-net triggers: count of `watchdog/ceiling` plus `watchdog/heartbeat_missing`.
+- Safety-net triggers: count of `watchdog/ceiling`, `watchdog/heartbeat_missing` and `watchdog/boot_failed`.
 - Warnings that worked: count of `watchdog/idle_cancelled`.
 ```
 
@@ -1152,7 +1166,7 @@ One top-level command `/bonfire` with subcommands, registered per guild (instant
 1. Discord POSTs to the Function with headers `X-Signature-Ed25519` and `X-Signature-Timestamp`. The Function verifies the Ed25519 signature of `timestamp + raw body` against `DISCORD_PUBLIC_KEY`. Invalid or missing signature: HTTP 401, nothing else.
 2. Interaction type 1 (PING): respond `{"type": 1}`.
 3. Interaction type 2 (command) and type 3 (button): respond within 3 seconds with a deferred acknowledgement, before any I/O. Commands use response type 5 (`DEFERRED_CHANNEL_MESSAGE_WITH_SOURCE`); buttons use type 6 (`DEFERRED_UPDATE_MESSAGE`).
-4. Visibility is fixed per handler: `ignite`, `extinguish`, `restart` reply in channel; `check`, `cost` reply ephemerally (`flags: 64` on the deferred response).
+4. Every reply is in channel, so a `check` answers "is it up?" for everyone. The only ephemeral message is `confirm_not_yours` (`flags: 64`).
 5. The handler then does its work and edits the original reply with `PATCH /webhooks/{application_id}/{interaction_token}/messages/@original`. The token is valid for 15 minutes.
 6. Messages that happen later (ready, warnings, burn-out) are posted by the agent to the channel webhook `DISCORD_WEBHOOK_URL`, not through an interaction token.
 
@@ -1172,13 +1186,13 @@ Placeholders in braces are substituted; everything else is verbatim. Feature fil
 | ID | Sent by | Where | Copy |
 |---|---|---|---|
 | `igniting` | Function | channel | Lighting the bonfire, ~2 min. |
-| `status_out` | Function | per handler | The bonfire is out. /bonfire ignite to light it. |
-| `status_igniting` | Function | per handler | The bonfire is igniting ({m} min so far, usually ready in ~2 min). |
-| `status_lit` | Function | per handler | The bonfire is lit: {n}/{max} players online, lit for {h}h {mm}m. |
-| `status_lit_idle` | Function | per handler | The bonfire is lit: 0/{max} players online, lit for {h}h {mm}m. Burns out in {r} min unless someone joins. |
-| `status_lit_unknown` | Function | per handler | The bonfire is lit, but the player count is unknown (auto-extinguish paused). Lit for {h}h {mm}m. |
-| `status_lit_crashed` | Function | per handler | The bonfire is lit but the game is down. Try /bonfire restart. |
-| `status_extinguishing` | Function | per handler | The bonfire is being extinguished. |
+| `status_out` | Function | channel | The bonfire is out. /bonfire ignite to light it. |
+| `status_igniting` | Function | channel | The bonfire is igniting ({m} min so far, usually ready in ~2 min). |
+| `status_lit` | Function | channel | The bonfire is lit: {n} players online, lit for {h}h {mm}m. |
+| `status_lit_idle` | Function | channel | The bonfire is lit: 0 players online, lit for {h}h {mm}m. Burns out in {r} min unless someone joins. |
+| `status_lit_unknown` | Function | channel | The bonfire is lit, but the player count is unknown (auto-extinguish paused). Lit for {h}h {mm}m. |
+| `status_lit_crashed` | Function | channel | The bonfire is lit but the game is down. Try /bonfire restart. |
+| `status_extinguishing` | Function | channel | The bonfire is being extinguished. |
 | `ready` | agent | webhook | Bonfire lit — server ready. Connect to {address}. |
 | `ignite_failed` | agent | webhook | Failed to ignite: the game did not become ready in {ready_timeout_minutes} min. The VM stays up for diagnosis until the session ceiling. |
 | `warning` | agent | webhook | The bonfire will burn out in {w} min with nobody around. |
@@ -1192,17 +1206,21 @@ Placeholders in braces are substituted; everything else is verbatim. Feature fil
 | `confirm_not_yours` | Function | ephemeral | Only the person who ran /bonfire extinguish can confirm. |
 | `confirm_expired` | Function | channel (edited) | This prompt expired. Run /bonfire extinguish again. |
 | `restarting` | Function | channel | Restarting the game; the bonfire stays lit. |
-| `crash` | agent | webhook | The game crashed; restarting it ({k}/{max_crash_restarts}). |
-| `crash_gave_up` | agent | webhook | The game crashed {max_crash_restarts} times this session; giving up. Fix it and use /bonfire restart. |
+| `crash` | agent | webhook | The game crashed; Docker is restarting it. |
+| `crash_gave_up` | agent | webhook | The game crashed repeatedly and stays down. Fix it and use /bonfire restart. |
+| `watchdog_ceiling_warning` | Function | webhook | The bonfire has been lit for {h} h; the safety net puts it out at {max_session_hours} h. |
 | `watchdog_ceiling` | Function | webhook | Safety net: the bonfire has been lit for {max_session_hours} h and was extinguished. /bonfire ignite to bring it back. |
 | `watchdog_heartbeat` | Function | webhook | Safety net: no heartbeat from the server for {heartbeat_stale_minutes} min; the bonfire was extinguished. |
-| `cost` | Function | ephemeral | Lit {h} h this month: about US${vm} for the VM plus US${fixed} fixed (disks, IP, storage). |
+| `watchdog_boot_failed` | Function | webhook | Safety net: the server never reported in after {heartbeat_stale_minutes} min; the bonfire was extinguished. Check the VM boot logs. |
+| `cost` | Function | channel | Lit {h} h this month: about US${vm} for the VM plus US${fixed} fixed (disks, IP, storage). |
 
-`{user}` is a Discord mention (`<@user_id>`). `{address}` is `BONFIRE_PUBLIC_ADDRESS`. `{vm}` is `hours_this_month × vm_hourly_usd` rounded to whole dollars; `{fixed}` is `fixed_monthly_usd`.
+`{user}` is a Discord mention (`<@user_id>`). `{address}` is `BONFIRE_PUBLIC_ADDRESS`. `{vm}` is `hours_this_month × vm_hourly_usd` with two decimals; `{fixed}` is `fixed_monthly_usd`. `{h}` in `status_*` and `cost` is whole hours; `{mm}` is zero-padded minutes.
+
+In v1.5 the `warning`, `idle_cancelled` and `idle_shutdown` rows move from the agent's webhook to the Function so they can carry the keep-it-lit button; their copy does not change.
 
 ## Status reply selection
 
-`check`, and any redundant `ignite` or `extinguish`, reply with the status message chosen by this order: `vm_state` is `out` → `status_out`; `igniting` → `status_igniting`; `extinguishing` → `status_extinguishing`; `lit` and `last_health = crashed` → `status_lit_crashed`; `lit` and `last_player_count = -1` → `status_lit_unknown`; `lit` and `last_player_count = 0` → `status_lit_idle` with `{r} = idle_timeout_minutes − (now − idle_since)`; otherwise `status_lit`.
+`check`, any redundant `ignite` or `extinguish`, and a `restart` issued while not `lit`, reply with the status message chosen by this order: `vm_state` is `out` → `status_out`; `igniting` → `status_igniting`; `extinguishing` → `status_extinguishing`; `lit` and `last_health = crashed` → `status_lit_crashed`; `lit` and `last_player_count = -1` → `status_lit_unknown`; `lit` and `last_player_count = 0` → `status_lit_idle` with `{r} = idle_timeout_minutes − (now − idle_since)`; otherwise `status_lit`.
 ```
 
 - [ ] **Step 2: Restore the TODO-LINKs** in ADR 0003 and `docs/architecture.md` that point at this file.
@@ -1321,8 +1339,7 @@ Feature: Ignite the bonfire
 
   Background:
     Given the configured game is "valheim"
-    And ready_timeout_minutes is 5
-    And lock_ttl_minutes is 5
+    And the adapter declares ready_timeout_minutes 5
 
   @unit
   Scenario: Ignite from out
@@ -1396,9 +1413,6 @@ Feature: Ignite the bonfire
 ```gherkin
 Feature: Extinguish the bonfire
   A manual stop goes through the agent so the game saves cleanly.
-
-  Background:
-    Given lock_ttl_minutes is 5
 
   @unit
   Scenario: Extinguish with nobody online
@@ -1486,23 +1500,39 @@ Feature: Extinguish the bonfire
     Then the state row has vm_state "out", session fields null, lock_until null
     And hours_this_month is about 12.97
     And a "vm/deallocated" event is recorded
+
+  @unit
+  Scenario: Ignite right after a burn-out proceeds once the VM is off
+    Given the bonfire is extinguishing with lock_until 3 minutes ahead
+    And the VM power state is deallocated
+    When a member runs "/bonfire ignite"
+    Then the state row passes through vm_state "out" and ends in "igniting"
+    And a VM start is requested exactly once
+    And the reply is message "igniting"
+
+  @unit
+  Scenario: Extinguish with a dead agent is finished by the next handler
+    Given the bonfire is extinguishing with lock_until 1 minute in the past
+    And the VM power state is running
+    When a member runs "/bonfire check"
+    Then a VM deallocate is requested by the Function exactly once
+    And the reply is message "status_extinguishing"
 ```
 
 - [ ] **Step 3: Write `tests/features/check.feature`**
 
 ```gherkin
 Feature: Check the bonfire
-  The status reply is ephemeral and chosen by the rules in docs/contracts/discord.md.
+  The status reply is posted in channel and chosen by the rules in docs/contracts/discord.md.
 
   Background:
-    Given max_players is 5
-    And idle_timeout_minutes is 45
+    Given idle_timeout_minutes is 45
 
   @unit
   Scenario: Check while out
     Given the bonfire is out
     When a member runs "/bonfire check"
-    Then the Function acknowledges with a deferred ephemeral reply
+    Then the Function acknowledges with a deferred channel reply
     And the reply is message "status_out"
     And a "command/check" event is recorded
 
@@ -1516,14 +1546,14 @@ Feature: Check the bonfire
   Scenario: Check while lit with players
     Given the bonfire is lit with 3 players online, lit for 1 hour 20 minutes
     When a member runs "/bonfire check"
-    Then the reply is message "status_lit" with n 3, max 5, h 1, mm 20
+    Then the reply is message "status_lit" with n 3, h 1, mm 20
 
   @unit
   Scenario: Check while lit with nobody online
     Given the bonfire is lit with 0 players online, lit for 2 hours 5 minutes
     And idle_since is 13 minutes ago
     When a member runs "/bonfire check"
-    Then the reply is message "status_lit_idle" with max 5, h 2, mm 05, r 32
+    Then the reply is message "status_lit_idle" with h 2, mm 05, r 32
 
   @unit
   Scenario: Check while the player count is unknown
@@ -1547,7 +1577,7 @@ Feature: Check the bonfire
 - [ ] **Step 4: Verify**
 
 Run: `python3 scripts/check_docs.py && grep -c 'Scenario:' tests/features/ignite.feature tests/features/extinguish.feature tests/features/check.feature`
-Expected: `OK` and counts 8, 11, 7.
+Expected: `OK` and counts 8, 13, 7.
 
 - [ ] **Step 5: Commit**
 
@@ -1577,14 +1607,14 @@ MSG
 - [ ] **Step 1: Write `tests/features/idle-shutdown.feature`**
 
 ```gherkin
-Feature: Idle shutdown with warnings
+Feature: Agent check: idle shutdown, warnings and health
   The agent runs these rules on every check. An unknown player count never extinguishes.
+  The unknown alert threshold is the 60-minute constant in docs/contracts/configuration.md.
 
   Background:
     Given idle_timeout_minutes is 45
     And idle_warning_minutes is "15,5"
     And idle_check_interval is 1
-    And unknown_alert_minutes is 60
     And the bonfire is lit
 
   @unit
@@ -1704,16 +1734,32 @@ Feature: Idle shutdown with warnings
     Given the adapter reports 2 players and health "ok"
     When the agent runs its check at 20:00
     Then last_heartbeat is 20:00, last_player_count is 2, and last_health is "ok"
+
+  @unit
+  Scenario: A crash is announced once and the agent does not restart the game
+    Given last_health is "ok"
+    And the adapter reports health "degraded" and player count "unknown"
+    When the agent runs its check
+    Then the webhook receives message "crash"
+    And a "game/crash" event is recorded
+    And the adapter "start" subcommand is not invoked
+    And last_health is "degraded"
+
+  @unit
+  Scenario: Docker giving up is announced once
+    Given last_health is "degraded"
+    And the adapter reports health "crashed" and player count "unknown"
+    When the agent runs its check
+    Then the webhook receives message "crash_gave_up"
+    And a "game/crash_gave_up" event is recorded
+    And no VM deallocate is requested
 ```
 
 - [ ] **Step 2: Write `tests/features/concurrency.feature`**
 
 ```gherkin
 Feature: Concurrent commands and lock expiry
-  A lock in the state row makes transitions exclusive; expired locks are reconciled.
-
-  Background:
-    Given lock_ttl_minutes is 5
+  A lock in the state row makes transitions exclusive for 5 minutes; expired locks are reconciled.
 
   @unit
   Scenario: Two ignites at once start the VM once
@@ -1751,8 +1797,9 @@ Feature: Concurrent commands and lock expiry
     And the reply is a status message for state "lit"
 
   @unit
-  Scenario: An active lock blocks state changes
+  Scenario: An active lock blocks state changes while the VM is still running
     Given the bonfire is extinguishing with lock_until 3 minutes ahead
+    And the VM power state is running
     When a member runs "/bonfire ignite"
     Then the reply is message "status_extinguishing"
     And the state row is unchanged
@@ -1767,7 +1814,6 @@ Feature: Safety-net watchdog
   Background:
     Given max_session_hours is 12
     And heartbeat_stale_minutes is 20
-    And watchdog_interval_minutes is 15
 
   @unit
   Scenario: A healthy session is left alone
@@ -1777,6 +1823,23 @@ Feature: Safety-net watchdog
     Then no VM deallocate is requested
     And no message is posted
     And the state row is unchanged
+
+  @unit
+  Scenario: The ceiling is announced one hour ahead
+    Given the bonfire is lit with session_started_at 11 hours 5 minutes ago
+    And last_heartbeat is 1 minute ago and ceiling_warned is false
+    When the safety-net timer runs
+    Then the webhook receives message "watchdog_ceiling_warning" with h 11
+    And ceiling_warned is true
+    And a "watchdog/ceiling_warning" event is recorded
+    And no VM deallocate is requested
+
+  @unit
+  Scenario: The ceiling warning is posted once
+    Given the bonfire is lit with session_started_at 11 hours 20 minutes ago
+    And last_heartbeat is 1 minute ago and ceiling_warned is true
+    When the safety-net timer runs
+    Then no message is posted
 
   @unit
   Scenario: The session ceiling extinguishes regardless of players
@@ -1799,11 +1862,22 @@ Feature: Safety-net watchdog
     And a "watchdog/heartbeat_missing" event is recorded
 
   @unit
-  Scenario: A missing heartbeat while igniting is tolerated until the ready timeout
+  Scenario: A missing heartbeat while igniting is tolerated for heartbeat_stale_minutes
     Given the bonfire is igniting since 3 minutes ago
     And last_heartbeat is null
     When the safety-net timer runs
     Then no VM deallocate is requested
+
+  @unit
+  Scenario: A boot that never reports in is a failed ignite
+    Given the bonfire is igniting since 21 minutes ago
+    And last_heartbeat is null
+    And the VM power state is running
+    When the safety-net timer runs
+    Then the state row has vm_state "extinguishing" and session_ended_at now
+    And a VM deallocate is requested by the Function exactly once
+    And the webhook receives message "watchdog_boot_failed"
+    And a "watchdog/boot_failed" event is recorded
 
   @unit
   Scenario: Drift: the row says out but the VM is running and the agent is silent
@@ -1825,7 +1899,7 @@ Feature: Safety-net watchdog
 - [ ] **Step 4: Verify**
 
 Run: `python3 scripts/check_docs.py && grep -c 'Scenario:' tests/features/idle-shutdown.feature tests/features/concurrency.feature tests/features/watchdog.feature`
-Expected: `OK` and counts 14, 5, 6.
+Expected: `OK` and counts 16, 5, 9.
 
 - [ ] **Step 5: Commit**
 
@@ -1863,8 +1937,15 @@ Feature: Valheim adapter conformance
     And BONFIRE_ADAPTER_DIR is the games/valheim directory
     And BONFIRE_DATA_DIR is an empty temporary directory
     And BONFIRE_BACKUP_DIR is an empty temporary directory
-    And BONFIRE_STOP_GRACE_SECONDS is 60
+    And BONFIRE_STOP_GRACE_SECONDS is 60, copied from adapter.json
     And the valheim server password is provided in the environment
+
+  @contract
+  Scenario: adapter.json declares ports and the two tunables
+    Given the games/valheim directory
+    When adapter.json is parsed
+    Then ports contains 2456/udp and 2457/udp
+    And stop_grace_seconds is 60 and ready_timeout_minutes is 10
 
   @contract
   Scenario: install pulls the image
@@ -1911,8 +1992,14 @@ Feature: Valheim adapter conformance
     Then it exits 0 and prints exactly "ok"
 
   @contract
-  Scenario: health reports crashed when the container has exited
-    Given the container has exited with a non-zero code
+  Scenario: health reports degraded while Docker restarts the container
+    Given the game process was killed and Docker is restarting the container
+    When "adapter.sh health" runs
+    Then it exits 0 and prints exactly "degraded"
+
+  @contract
+  Scenario: health reports crashed when Docker has given up
+    Given the container has exited after three failed restarts
     When "adapter.sh health" runs
     Then it exits 0 and prints exactly "crashed"
 
@@ -1964,7 +2051,7 @@ Feature: Valheim adapter conformance
 - [ ] **Step 3: Verify**
 
 Run: `python3 scripts/check_docs.py && grep -rn TODO-LINK docs/ | wc -l && grep -c 'Scenario:' tests/features/adapter-valheim.feature`
-Expected: `OK`, `0`, `14`.
+Expected: `OK`, `0`, `16`.
 
 - [ ] **Step 4: Commit**
 
@@ -2040,6 +2127,10 @@ The core knows no game. Each game is an adapter in `games/<name>/` implementing 
 - Known risk: with `-crossplay` (PlayFab) A2S may behave differently; test in phase 0.
 - Conformance: [tests/features/adapter-valheim.feature](../tests/features/adapter-valheim.feature).
 ```
+
+- [ ] **Step 4a: Amend the ceiling exception in section 8**
+
+Change the bullet `- Zero shutdowns with a player connected.` to `- Zero shutdowns with a player connected, except the announced session ceiling (ADR 0004).`
 
 - [ ] **Step 4: Replace section 9**
 
@@ -2197,7 +2288,7 @@ grep -c 'Scenario:' tests/features/*.feature
 wc -l docs/*.md docs/adr/*.md docs/contracts/*.md | sort -n | tail -5
 ```
 
-Expected: `OK`; `todo-links: 1` (grep found nothing); six ADRs plus README, four contracts, seven feature files; scenario counts 8, 11, 7, 14, 5, 6, 14; no file over 300 lines.
+Expected: `OK`; `todo-links: 1` (grep found nothing); six ADRs plus README, four contracts, seven feature files; scenario counts 8, 13, 7, 16, 5, 9, 16; no file over 300 lines.
 
 - [ ] **Step 2: Replace `README.md`**
 
@@ -2243,8 +2334,8 @@ MSG
 
 ## Self-review
 
-**Spec coverage.** Spec section 3 layout: every path appears in a task (ADR files Tasks 2 to 4; architecture Task 5; four contracts Tasks 6 to 9; testing Task 10; seven feature files Tasks 11 to 13; PRD Task 14; prior-art Task 15). Spec 4.1 PRD changes: each bullet is a step in Task 14. Spec 4.2 architecture contents: components, layout, state machine, sequences, glossary, security in Task 5; crash handling added per D10. Spec 4.3 to 4.10: matched one to one. Spec 4.11 per-phase specs are out of this plan by design. Spec section 7 acceptance: Task 16 Step 1 runs it.
+**Spec coverage.** Spec section 3 layout: every path appears in a task (ADR files Tasks 2 to 4; architecture Task 5; four contracts Tasks 6 to 9; testing Task 10; seven feature files Tasks 11 to 13; PRD Task 14; prior-art Task 15). Spec 4.1 PRD changes: each bullet is a step in Task 14. Spec 4.2 architecture contents: components, layout, state machine, sequences, glossary, security in Task 5; crash handling added per D10 (Docker-owned). Spec 4.3 to 4.10: matched one to one. Spec 4.11 per-phase specs are out of this plan by design. Spec section 7 acceptance: Task 16 Step 1 runs it.
 
 **Placeholders.** The only forward references are the TODO-LINK holding comments, each of which names the task that removes it, and Task 16 asserts none remain.
 
-**Consistency.** Field names in feature files (`idle_since`, `warnings_posted`, `unknown_since`, `unknown_alerted`, `last_heartbeat`, `last_player_count`, `last_health`, `session_started_at`, `session_ended_at`, `lock_until`, `hours_this_month`, `pending_command`) match Task 8. Message IDs in feature files match the Task 9 catalog. Configuration names in Backgrounds match Task 7. Action names in events match the Task 8 enum, including `vm/deallocated`, `watchdog/ceiling`, `watchdog/heartbeat_missing`, `watchdog/unknown_alert`. The Task 8 row count of 37 assumes 17 state fields, 4 values-per-state rows, 11 event fields, the action table header and 4 action rows as written.
+**Consistency.** Field names in feature files (`idle_since`, `warnings_posted`, `unknown_since`, `unknown_alerted`, `last_heartbeat`, `last_player_count`, `last_health`, `ceiling_warned`, `session_started_at`, `session_ended_at`, `lock_until`, `hours_this_month`, `pending_command`) match Task 8. Message IDs in feature files match the Task 9 catalog. Configuration names in Backgrounds match Task 7. Action names in events match the Task 8 enum, including `vm/deallocated`, `watchdog/ceiling_warning`, `watchdog/ceiling`, `watchdog/heartbeat_missing`, `watchdog/boot_failed`, `watchdog/unknown_alert`, `game/crash`, `game/crash_gave_up`. The Task 8 row count of 37 assumes 17 state fields, 4 values-per-state rows, 11 event fields, the action table header and 4 action rows as written.
