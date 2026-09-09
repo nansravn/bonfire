@@ -8,8 +8,7 @@ Four parts run Bonfire. Each owns one concern.
 
 - **Function** (Azure Functions, consumption plan). Owns: the Discord Interactions Endpoint (slash commands and button clicks), the safety-net timer, and every transition it is allowed to make in the state machine below. Depends on: the state table, the events container, the Azure Compute API for the VM, Key Vault for the bot token. Never talks to the adapter. See [ADR 0003](adr/0003-controller-azure-function-interactions-endpoint.md).
 - **Agent** (a service on the VM, run by a systemd timer every `idle_check_interval` minutes). Owns: readiness detection, the idle timer and warnings, heartbeat, crash restarts, executing `pending_command`, clean stop and self-deallocation. Depends on: the adapter CLI, the state table, the events container, the Discord webhook URL, the VM's managed identity. See [ADR 0004](adr/0004-watchdog-local-agent-primary-function-safety-net.md).
-<!-- TODO-LINK: contracts/adapter-interface.md -->
-- **Adapter** (a directory under `games/<name>/`: compose file, `adapter.sh`, `adapter.json`). Owns: everything game-specific. Depends on: Docker and the data disk. Contract in contracts/adapter-interface.md.
+- **Adapter** (a directory under `games/<name>/`: compose file, `adapter.sh`, `adapter.json`). Owns: everything game-specific. Depends on: Docker and the data disk. Contract in [contracts/adapter-interface.md](contracts/adapter-interface.md).
 - **Terraform** (`infra/`). Owns: provisioning only. Never starts or stops the VM after apply. See [ADR 0006](adr/0006-infrastructure-as-code-terraform.md).
 
 ## Repository layout
