@@ -16,4 +16,19 @@ Bonfire starts and stops one dedicated game server VM on Azure from Discord slas
 | [tests/features/](tests/features/idle-shutdown.feature) | Gherkin scenarios for every behaviour |
 | [docs/prior-art.md](docs/prior-art.md) | Similar tools and the patterns borrowed from them |
 
-Status: documentation complete; Phase 0 (Terraform and the Valheim adapter) not started.
+## Running the pilot
+
+Prerequisites: Azure CLI, Terraform ≥ 1.9, Docker, an `az login` session with Owner on the subscription.
+
+```bash
+infra/bootstrap/create-state-backend.sh                    # once: state storage + infra/envs/pilot/backend.hcl
+cp infra/envs/pilot/terraform.tfvars.example infra/envs/pilot/terraform.tfvars   # fill in your values
+terraform -chdir=infra/envs/pilot init -backend-config=backend.hcl
+terraform -chdir=infra/envs/pilot apply
+az vm deallocate -g rg-bonfire-pilot -n vm-bonfire         # stop
+az vm start -g rg-bonfire-pilot -n vm-bonfire              # start; the game comes up by itself
+```
+
+`terraform destroy` keeps the data disk (`prevent_destroy`); to delete the world as well, remove the `prevent_destroy` line in `infra/modules/vm/main.tf` first. Adapter tests: `pip install -r tests/requirements.txt && pytest -m contract tests/`.
+
+Status: Phase 0 in progress (Terraform and the Valheim adapter).

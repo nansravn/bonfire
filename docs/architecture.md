@@ -14,25 +14,13 @@ Four parts run Bonfire. Each owns one concern.
 ## Repository layout
 
 ```
-infra/
-  modules/
-    network/     vnet, subnet, nsg (rules from the adapter's adapter.json), static public IP (Standard)
-    vm/          D4as v5, Premium OS disk, separate data disk, managed identity, cloud-init
-    controller/  function app (consumption), storage account, table, app settings
-    data/        cosmos serverless, events container (ttl = 90 days)
-    iam/         function -> VM Contributor scoped to the VM; VM -> may deallocate itself
-    secrets/     key vault + access policies
-  envs/
-    pilot/       terraform.tfvars
-games/
-  <name>/
-    docker-compose.yml
-    adapter.sh
-    adapter.json
-agent/        the on-VM agent and its systemd units
-function/     the Azure Function app
+.github/      CI workflows
+agent/        (Phase 1) the on-VM agent and its systemd units
+function/     (Phase 1) the Azure Function app
+infra/        Terraform: bootstrap/, envs/pilot/, modules/ (see ADR 0006)
+games/        one adapter per game
 docs/         this documentation
-tests/        feature files and, later, test code
+tests/        features/ (Gherkin) and steps/ (pytest-bdd)
 scripts/      repository tooling
 ```
 
