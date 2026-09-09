@@ -37,7 +37,6 @@ Rejected. Its idle cost alone exceeds the storage budget.
 ## Consequences
 
 - Two data stores with two SDKs in both the agent and the Function.
-<!-- TODO-LINK: contracts/data-schema.md -->
-- Concurrency on the state row uses Table Storage ETags: every conditional write sends If-Match and retries on 412. Lock semantics are in contracts/data-schema.md.
+- Concurrency on the state row uses Table Storage ETags: every conditional write sends If-Match and retries on 412. Lock semantics are in [contracts/data-schema.md](../contracts/data-schema.md).
 - Events expire after 90 days; long-term metrics must be exported before then.
 - If the subscription has no Cosmos free-tier account yet, the free tier (1,000 RU/s, 25 GB) is an alternative to serverless with the same schema.
