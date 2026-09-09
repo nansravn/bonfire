@@ -112,10 +112,10 @@ def _(adapter):
     # switch the policy to `always` and stop the container's init from inside: Docker
     # then restarts it and RestartCount grows, which is what health observes.
     subprocess.run(["docker", "update", "--restart=always", CONTAINER], check=True, capture_output=True)
-    stop = subprocess.run(["docker", "exec", CONTAINER, "supervisorctl", "shutdown"], capture_output=True)
-    if stop.returncode != 0:
-        subprocess.run(["docker", "exec", CONTAINER, "kill", "-TERM", "1"], check=True, capture_output=True)
     try:
+        stop = subprocess.run(["docker", "exec", CONTAINER, "supervisorctl", "shutdown"], capture_output=True)
+        if stop.returncode != 0:
+            subprocess.run(["docker", "exec", CONTAINER, "kill", "-TERM", "1"], check=True, capture_output=True)
         deadline = time.monotonic() + 180
         while time.monotonic() < deadline:
             state = adapter.container_state()
