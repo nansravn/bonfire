@@ -1,0 +1,19 @@
+variable "resource_group_name" { type = string }
+variable "location" { type = string }
+variable "nic_id" { type = string }
+variable "vm_size" { type = string }
+variable "admin_ssh_public_key" { type = string }
+variable "data_disk_gb" { type = number }
+variable "game" { type = string }
+variable "adapter" {
+  type        = object({ stop_grace_seconds = number, ready_timeout_minutes = number, ports = list(object({ port = number, proto = string })) })
+  description = "Parsed games/<game>/adapter.json."
+}
+variable "game_env" {
+  type        = map(string)
+  description = "Non-secret adapter environment written to /etc/bonfire/<game>.env."
+}
+variable "public_address" { type = string }
+variable "key_vault_name" { type = string }
+variable "git_ref" { type = string }
+variable "repo_url" { type = string }
