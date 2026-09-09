@@ -1,0 +1,23 @@
+name: ci
+on:
+  push:
+  pull_request:
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: hashicorp/setup-terraform@v3
+      - name: Documentation checker
+        run: python3 scripts/check_docs.py
+      - name: Terraform format
+        run: terraform fmt -check -recursive infra
+      - name: Terraform validate
+        run: |
+          terraform -chdir=infra/envs/pilot init -backend=false -input=false
+          terraform -chdir=infra/envs/pilot validate
+      - name: Shellcheck
+        run: shellcheck games/*/adapter.sh infra/bootstrap/*.sh
+      - name: Python syntax
+        run: python3 -m py_compile $(git ls-files '*.py')
