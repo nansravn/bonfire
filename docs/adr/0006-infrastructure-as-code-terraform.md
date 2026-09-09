@@ -45,6 +45,5 @@ Rejected. Not reproducible from scratch; the PRD's "VM is disposable" goal depen
 
 - Adapters declare their ports in `adapter.json`, not a `.tf` file: Terraform cannot select a `.tf` file or module source by variable, but it can read `jsondecode(file("${path.root}/../../games/${var.game}/adapter.json")).ports`.
 - Terraform needs a state backend. The pilot uses an `azurerm` backend in a small bootstrap storage account created once outside Terraform; the Phase 0 spec details the bootstrap.
-<!-- TODO-LINK: contracts/configuration.md -->
-- Configuration values flow from Terraform variables to Function app settings and the agent's environment file; the mapping is in contracts/configuration.md.
+- Configuration values flow from Terraform variables to Function app settings and the agent's environment file; the mapping is in [contracts/configuration.md](../contracts/configuration.md).
 - Destroying and re-creating the VM keeps the data disk and its saves.
