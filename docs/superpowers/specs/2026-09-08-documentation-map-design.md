@@ -185,3 +185,10 @@ The map is done when:
 - Every link between documents resolves.
 - Each feature file has at least the scenarios listed in 4.10, each tagged with a level.
 - `docs/prior-art.md` covers at least ten projects in the survey and all three in the patterns section.
+
+## 8. Amendments during execution
+
+Two plan decisions, approved before execution, supersede the text above:
+
+- Section 4.4: adapters declare ports and per-game tunables in `adapter.json`, not `ports.tf`. Terraform cannot select a `.tf` file by variable; it reads `jsondecode(file(...)).ports`. See ADR 0006 and plan decision D1.
+- Section 4.10: "extinguish during igniting" is covered in both `extinguish.feature` and `concurrency.feature`; the extinguish file holds the primary scenario.

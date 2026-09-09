@@ -50,8 +50,8 @@ For each pattern: where it lives in the source, what it does, and whether Bonfir
 
 **Adopted:**
 
-- Immediate ack + asynchronous "the real result" follow-up post, gated by Ed25519 signature verification on the raw body (Hyveon's interactions/followup Lambda split) — landed in [prd.md §6.3](prd.md#63-controller-azure-function-with-discord-interactions-endpoint) and [§7.1](prd.md#71-commands).
+- Immediate ack + asynchronous "the real result" follow-up post, gated by Ed25519 signature verification on the raw body (Hyveon's interactions/followup Lambda split) — landed in [ADR 0003](adr/0003-controller-azure-function-interactions-endpoint.md) and [§7.1](prd.md#71-commands).
 - Start → poll-for-ready → notify loop, moved from a bot-side poll to an on-host agent poll (nichogx's `notifyInstanceStarting`/`notifyServerStarting`) — landed in [prd.md §7.6](prd.md#76-adapter-interface) and [§7.1](prd.md#71-commands).
 - Idle timer with a grace period that can cancel a pending shutdown (lazymc's `keep_online_until` / `should_sleep`) — landed in [prd.md §7.3](prd.md#73-idle-shutdown-with-warnings) as the idle-timer logic and the v1.5 "keep it lit" button.
 - One config/contract per game, game-specific logic isolated from the core (lazymc's per-server `Config`, generalized rather than copied as-is) — landed in [prd.md §7.6](prd.md#76-adapter-interface) as the adapter interface.
-- One infra module per concern, composed from a single entry point (Hyveon's `infra/src` — `network.ts`, `ecs.ts`, `iam.ts`, … composed by `program.ts`) — landed in [prd.md §6.6](prd.md#66-infrastructure-as-code-terraform) as the `infra/modules/` layout, kept in Terraform rather than following Hyveon's move to Pulumi.
+- One infra module per concern, composed from a single entry point (Hyveon's `infra/src` — `network.ts`, `ecs.ts`, `iam.ts`, … composed by `program.ts`) — landed in [ADR 0006](adr/0006-infrastructure-as-code-terraform.md) as the `infra/modules/` layout, kept in Terraform rather than following Hyveon's move to Pulumi.

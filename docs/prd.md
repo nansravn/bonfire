@@ -70,7 +70,7 @@ All commands are subcommands of `/bonfire`, so typing `/bonfire` shows every act
 |---|---|
 | `/bonfire ignite` (alias `start`) | If deallocated, start the VM; reply "Lighting the bonfire, ~2 min" and post "Bonfire lit — server ready" when `is_ready` succeeds. If already up or starting, reply with current status. |
 | `/bonfire extinguish` (alias `stop`) | Deallocate. If players are online, require confirmation (button). |
-| `/bonfire check` | State (lit / out / igniting / extinguishing), players online/max, uptime this session, minutes until auto-extinguish. |
+| `/bonfire check` | State (lit / out / igniting / extinguishing), players online, uptime this session, minutes until auto-extinguish. |
 | `/bonfire cost` | Hours lit this month and estimated US$. |
 | `/bonfire restart` | Restart the game process only (adapter `stop` + `start`), VM stays up. |
 
@@ -121,7 +121,7 @@ Copy for every message is in the [message catalog](contracts/discord.md#message-
 
 ### 7.5 Network
 
-Static Standard public IP. NSG rules from the adapter's `ports.tf`. The query port (2457) is opened only if the external watchdog needs it; in v1 only the local agent queries, on `127.0.0.1`.
+Static Standard public IP. NSG rules from the adapter's `adapter.json`. The query port (2457) is never opened in v1; only the local agent queries it, on `127.0.0.1`.
 
 ### 7.6 Adapter interface
 
