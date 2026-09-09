@@ -10,6 +10,8 @@ One file per decision that shapes Bonfire's structure. A decision is recorded on
 | [0002](0002-vm-size-d4as-v5.md) | VM size: D4as v5 instead of B4as v2 | Accepted |
 | [0003](0003-controller-azure-function-interactions-endpoint.md) | Controller: Azure Function with the Discord Interactions Endpoint | Accepted |
 | [0004](0004-watchdog-local-agent-primary-function-safety-net.md) | Watchdog: on-VM agent primary, Function safety net | Accepted |
+| [0005](0005-storage-table-cosmos-keyvault-blob.md) | Storage: Table for state, Cosmos for events, Key Vault, Blob | Accepted |
+| [0006](0006-infrastructure-as-code-terraform.md) | Infrastructure as code: Terraform | Accepted |
 
 ## Template
 
