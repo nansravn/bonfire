@@ -131,7 +131,7 @@ The core knows no game. Each game is an adapter in `games/<name>/` implementing 
 - Image: `lloesche/valheim-server` (SteamCMD built in, auto-update).
 - `player_count`: Steam A2S_INFO query on `127.0.0.1:2457`. Fallback: log parsing (`Got connection SteamID` / `Closing socket`).
 - `is_ready`: A2S responds.
-- Ports: 2456–2457/UDP.
+- Ports: 2456/udp public; 2457 (A2S) loopback only.
 - Known risk: with `-crossplay` (PlayFab) A2S may behave differently; test in phase 0.
 - Conformance: [tests/features/adapter-valheim.feature](../tests/features/adapter-valheim.feature).
 

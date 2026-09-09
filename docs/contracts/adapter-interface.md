@@ -8,7 +8,7 @@ An adapter is everything Bonfire knows about one game. The core never inspects a
 |---|---|
 | `docker-compose.yml` | The game server image and its configuration. Must mount `${BONFIRE_DATA_DIR}` for saves. |
 | `adapter.sh` | Executable implementing the subcommands below. Bash; may call other tools it installs. |
-| `adapter.json` | Game metadata read by Terraform and the agent. Shape: `{"ports": [{"port": 2456, "proto": "udp"}, {"port": 2457, "proto": "udp"}], "stop_grace_seconds": 60, "ready_timeout_minutes": 10}`. `proto` is `udp` or `tcp`; the first port is the one players connect to. |
+| `adapter.json` | Game metadata read by Terraform and the agent. Shape: `{"ports": [{"port": 2456, "proto": "udp"}], "stop_grace_seconds": 60, "ready_timeout_minutes": 10}`. `proto` is `udp` or `tcp`; the first port is the one players connect to. Query ports the adapter itself uses (Valheim's 2457) are not listed: they stay loopback-only. |
 | `README.md` | Game-specific notes: image, known issues, how player count is obtained. |
 
 ## Environment
