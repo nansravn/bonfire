@@ -29,7 +29,7 @@ Three levels. Each feature file declares its level with a tag on every scenario,
 
 ## Runner
 
-The runner is chosen in the Phase 1 spec together with the agent and Function languages. Feature files are runner-agnostic Gherkin; the only requirement on the runner is tag selection.
+pytest with pytest-bdd ([ADR 0007](adr/0007-test-runner-pytest-bdd.md)). Feature tags are pytest markers: `pytest -m contract tests/` runs the adapter conformance level. Step definitions live in `tests/steps/`; only feature files bound there are collected.
 
 ## Rules
 
