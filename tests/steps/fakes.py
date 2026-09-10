@@ -131,3 +131,25 @@ class Signer:
             "X-Signature-Ed25519": self._key.sign(timestamp.encode() + body).hex(),
             "X-Signature-Timestamp": timestamp,
         }
+
+
+class FakeCompute:
+    """Records start and deallocate; power state is set by the test. Optionally logs deallocate to a file."""
+
+    def __init__(self, log: Path | None = None) -> None:
+        self.power = "deallocated"
+        self.starts = 0
+        self.deallocates = 0
+        self._log = log
+
+    def start(self) -> None:
+        self.starts += 1
+
+    def deallocate(self) -> None:
+        self.deallocates += 1
+        if self._log is not None:
+            with self._log.open("a") as fh:
+                fh.write("deallocate\n")
+
+    def power_state(self) -> str:
+        return self.power
