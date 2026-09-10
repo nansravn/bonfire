@@ -1,3 +1,12 @@
+terraform {
+  required_providers {
+    azurerm = {
+      source  = "hashicorp/azurerm"
+      version = "~> 4.0"
+    }
+  }
+}
+
 resource "azurerm_storage_account" "controller" {
   name                            = "stbonfirectl${var.suffix}"
   resource_group_name             = var.resource_group_name

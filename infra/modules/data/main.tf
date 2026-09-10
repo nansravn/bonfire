@@ -1,10 +1,20 @@
+terraform {
+  required_providers {
+    azurerm = {
+      source  = "hashicorp/azurerm"
+      version = "~> 4.0"
+    }
+  }
+}
+
 # Cosmos DB serverless for events (ADR 0005). Data-plane access is RBAC only.
 resource "azurerm_cosmosdb_account" "this" {
-  name                = "cosmos-bonfire-${var.suffix}"
-  resource_group_name = var.resource_group_name
-  location            = var.location
-  offer_type          = "Standard"
-  kind                = "GlobalDocumentDB"
+  name                          = "cosmos-bonfire-${var.suffix}"
+  resource_group_name           = var.resource_group_name
+  location                      = var.location
+  offer_type                    = "Standard"
+  kind                          = "GlobalDocumentDB"
+  local_authentication_disabled = true
 
   consistency_policy {
     consistency_level = "Session"
