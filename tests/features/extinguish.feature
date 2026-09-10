@@ -75,7 +75,7 @@ Feature: Extinguish the bonfire
   Scenario: Extinguish during igniting is refused
     Given the bonfire is igniting
     When a member runs "/bonfire extinguish"
-    Then the reply is message "status_igniting"
+    Then the reply is message "status_igniting" with m 1
     And the state row is unchanged
 
   @unit
