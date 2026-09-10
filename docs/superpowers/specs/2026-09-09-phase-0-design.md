@@ -192,6 +192,11 @@ No Azure credentials in CI during Phase 0.
 
 Appended after execution: e2e outcomes, boot timings, and the `-public 0` probe result.
 
+### Results so far
+
+- 2026-09-10: the 13 `@contract` scenarios passed on a GitHub-hosted runner in 4 min 31 s (workflow `adapter-contract`, run 34422931559 on commit b9c9389). The only warnings were pytest-bdd's own deprecation notices under pytest 9.
+- End-to-end scenarios, boot timings and the `-public 0` probe: pending Task O2 and O3.
+
 ### Amendments during execution
 
 - Worlds: the current server writes a per-world directory `config/worlds_local/<WORLD_NAME>/` (`_main.N.db2`, `.fwl2`, `.ok`, `.chunks`, chunk files), not a flat `.db`/`.fwl` pair. `adapter.sh backup` copies the directory (legacy pair still supported); the tests treat every file under it as a world file. Section 5.3's description is superseded.
