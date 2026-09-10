@@ -10,3 +10,6 @@ crash.log
 __pycache__/
 .pytest_cache/
 .venv/
+# Build output
+dist/
+*.egg-info/

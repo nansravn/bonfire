@@ -1,0 +1,30 @@
+[build-system]
+requires = ["setuptools>=69"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "bonfire"
+version = "0.1.0"
+description = "On-demand game server: Discord-controlled Azure VM with an idle watchdog"
+requires-python = ">=3.12"
+dependencies = [
+  "azure-identity>=1.17",
+  "azure-data-tables>=12.5",
+  "azure-cosmos>=4.7",
+  "cryptography>=42",
+  "requests>=2.32",
+]
+
+[project.optional-dependencies]
+agent = ["azure-storage-blob>=12.20", "python-a2s>=1.4"]
+function = ["azure-functions>=1.20"]
+test = [
+  "pytest>=8.2",
+  "pytest-bdd>=7.3",
+  "python-a2s>=1.4",
+  "azure-storage-blob>=12.20",
+  "azure-functions>=1.20",
+]
+
+[tool.setuptools.packages.find]
+include = ["bonfire*"]
