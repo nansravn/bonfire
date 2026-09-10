@@ -202,6 +202,19 @@ Appended after execution: e2e outcomes, boot timings, and the `-public 0` probe 
 - Probe (`SERVER_PUBLIC=false`): A2S does not answer; `-public 1` is required for the query port. A clean in-VM restart of the game takes about 10 s to stop and 35 s to come back.
 - Task O4: the VM is left deallocated between sessions.
 
+### Follow-ups carried into Phase 1
+
+Inputs and deferred findings that live nowhere else; the Phase 1 brainstorm should read this list first.
+
+- **Remove the nightly auto-deallocate** (`azurerm_dev_test_global_vm_shutdown_schedule` in the vm module) once the agent's idle timer is shown to extinguish an empty server after `idle_timeout_minutes`.
+- **A2S is unavailable with crossplay and with `SERVER_PUBLIC=false`.** Decide whether crossplay is supported; if so, `player_count` must rely on the log fallback (joins minus leaves after `Game server connected`) or another counter, and the "unknown never extinguishes" rule protects players meanwhile.
+- **`health` has no "stopped" state.** The adapter prints `crashed` whenever no container exists, including after a clean `stop`; the agent must only consult `health` while the game is expected to be running, or the contract gains a fourth value.
+- **Warm boot is about 65 s** from `az vm start` to A2S answering; the ignite message's "~2 min" holds. `ready_timeout_minutes` (10) has ample margin.
+- **Data disk lives in the pilot resource group**, so `terraform destroy` refuses and deleting the group deletes the world. Consider a separate resource group for the disk, or rely on Blob backups once the agent uploads them.
+- **CI delivery**: Terraform plan on PR and apply on merge with an OIDC federated credential and a GitHub environment gate; weekly drift plan; SHA-pinned actions; branch protection on `main` requiring the validate check.
+- **Deferred minors from reviews**: bootstrap script re-run path can orphan a stale state account if the named account is unreachable transiently; NSG rule `for_each` key omits priority (reordering ports reshuffles priorities in place); `bonfire-fetch-secret` does not URL-encode the secret name; `player_count` inspects the container twice; `backup` duplicates `mkdir -p`; pytest-bdd emits deprecation warnings under pytest 9 (add a `filterwarnings` for `pytest_bdd` if they become noise); `docker.list` in cloud-init hardcodes `noble`/`amd64`; the image reference `version = "latest"` is unpinned.
+- **Local contract runs** stall on the owner's WSL2 host (Steam download); the `adapter-contract` workflow is the gate. The partial download cache is at `~/.cache/bonfire-test/valheim-server`.
+
 ### Amendments during execution
 
 - Worlds: the current server writes a per-world directory `config/worlds_local/<WORLD_NAME>/` (`_main.N.db2`, `.fwl2`, `.ok`, `.chunks`, chunk files), not a flat `.db`/`.fwl` pair. `adapter.sh backup` copies the directory (legacy pair still supported); the tests treat every file under it as a world file. Section 5.3's description is superseded.
