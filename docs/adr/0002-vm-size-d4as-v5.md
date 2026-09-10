@@ -1,6 +1,6 @@
 # 0002. VM size: D4as v5 instead of B4as v2
 
-**Status:** Accepted
+**Status:** Accepted, amended 2026-09-10 (see Amendment)
 **Date:** 2026-09-08
 
 ## Context
@@ -24,3 +24,7 @@ Rejected. A VM that starts and stops daily loses its credit bank on every deallo
 - Full CPU from the first second of every session; no throttling to reason about.
 - About 12% higher hourly cost than the burstable size.
 - If usage ever approaches 24/7, revisit with reserved instances, which do not help a VM that is deallocated most of the day.
+
+## Amendment (2026-09-10)
+
+At first `apply`, `Standard_D4as_v5` was capacity-restricted for the pilot subscription in Brazil South (`SkuNotAvailable`). The pilot runs on `Standard_D4as_v6` instead: the same 4 vCPU and 16 GB on a newer AMD EPYC generation, listed at about US$0.30/h on-demand versus US$0.28/h, chosen over `D4ads_v6` because Bonfire does not use a local temp disk. v6 sizes are NVMe-only, so the VM sets `disk_controller_type = "NVMe"` and cloud-init locates LUN 0 through `/dev/disk/azure/data/by-lun/0` as well as the SCSI path. The reasoning against burstable sizes is unchanged.

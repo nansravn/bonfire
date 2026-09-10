@@ -50,3 +50,14 @@ variable "data_disk_gb" {
   type    = number
   default = 64
 }
+
+variable "alert_email" {
+  type        = string
+  default     = ""
+  description = "Receives the budget alert and the nightly-shutdown warning; empty disables both notifications."
+}
+
+variable "monthly_budget_usd" {
+  type    = number
+  default = 120
+}

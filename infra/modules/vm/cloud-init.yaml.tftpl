@@ -86,10 +86,18 @@ runcmd:
   - apt-get install -y docker-ce docker-ce-cli containerd.io docker-compose-plugin
   # Data disk at LUN 0: format only if empty, mount at /data by label.
   - |
-    DEV=/dev/disk/azure/scsi1/lun0
+    # LUN 0 appears at scsi1/lun0 on SCSI VMs and at data/by-lun/0 on NVMe VMs
+    # (azure-vm-utils udev rules); nvme0n2 is the NVMe fallback when no rules exist.
+    DEV=""
     i=0
-    until [ -e "$DEV" ] || [ "$i" -ge 60 ]; do sleep 10; i=$((i + 1)); done
-    if [ ! -e "$DEV" ]; then echo "bonfire: data disk $DEV not attached after 10 min" >&2; exit 1; fi
+    while [ -z "$DEV" ] && [ "$i" -lt 60 ]; do
+      for c in /dev/disk/azure/scsi1/lun0 /dev/disk/azure/data/by-lun/0; do
+        [ -e "$c" ] && DEV=$c && break
+      done
+      [ -z "$DEV" ] && sleep 10 && i=$((i + 1))
+    done
+    if [ -z "$DEV" ] && [ -e /dev/nvme0n2 ] && ! blkid /dev/nvme0n2 >/dev/null 2>&1; then DEV=/dev/nvme0n2; fi
+    if [ -z "$DEV" ]; then echo "bonfire: data disk not found after 10 min" >&2; exit 1; fi
     if ! blkid "$DEV" >/dev/null 2>&1; then mkfs.ext4 -L bonfiredata "$DEV"; fi
     mkdir -p /data
     grep -q ' /data ' /etc/fstab || echo "LABEL=bonfiredata /data ext4 defaults,nofail 0 2" >> /etc/fstab

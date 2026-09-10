@@ -10,3 +10,4 @@ game_env = {
 }
 game_password   = "change-me-5-chars-min"
 bonfire_git_ref = "main"
+alert_email     = "you@example.com"   # budget alert + nightly shutdown warning; leave empty to disable

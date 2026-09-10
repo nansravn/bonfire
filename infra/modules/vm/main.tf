@@ -20,6 +20,7 @@ resource "azurerm_linux_virtual_machine" "this" {
   disable_password_authentication = true
   network_interface_ids           = [var.nic_id]
   custom_data                     = base64encode(local.cloud_init)
+  disk_controller_type            = var.disk_controller_type
 
   admin_ssh_key {
     username   = "bonfire"
@@ -63,4 +64,20 @@ resource "azurerm_virtual_machine_data_disk_attachment" "data" {
   virtual_machine_id = azurerm_linux_virtual_machine.this.id
   lun                = 0
   caching            = "None"
+}
+
+# Interim backstop: deallocate every night so a forgotten session costs at most one night.
+# Remove once the agent's idle timer (Phase 1) is proven.
+resource "azurerm_dev_test_global_vm_shutdown_schedule" "nightly" {
+  virtual_machine_id    = azurerm_linux_virtual_machine.this.id
+  location              = var.location
+  enabled               = true
+  daily_recurrence_time = var.shutdown_time
+  timezone              = var.shutdown_timezone
+
+  notification_settings {
+    enabled         = var.shutdown_notification_email != ""
+    time_in_minutes = 30
+    email           = var.shutdown_notification_email
+  }
 }
