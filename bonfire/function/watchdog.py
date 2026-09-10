@@ -5,7 +5,7 @@ import logging
 from datetime import timedelta
 from typing import Callable
 
-from bonfire.core.discord import render
+from bonfire.core.discord import describe_error, render
 from bonfire.core.events import Event
 from bonfire.core.state import PreconditionFailed, StateRow, begin_extinguish
 from bonfire.function.reconcile import needs_power_state, reconcile
@@ -30,7 +30,7 @@ def run_watchdog(c: Clients) -> None:
         try:
             c.webhook.post(render(message_id, **placeholders))
         except Exception as exc:
-            log.warning("webhook post failed: %s", exc)
+            log.warning("webhook post failed: %s", describe_error(exc))
 
     def safety_extinguish(message_id: str, action: str, **placeholders) -> None:
         begin_extinguish(row, now)

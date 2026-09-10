@@ -81,6 +81,5 @@ resource "azurerm_linux_function_app" "this" {
   app_settings = merge(var.app_settings, {
     SCM_DO_BUILD_DURING_DEPLOYMENT = "true"
     ENABLE_ORYX_BUILD              = "true"
-    BONFIRE_PACKAGE_SHA            = var.package_sha
   })
 }

@@ -5,10 +5,6 @@ variable "package_zip" {
   type        = string
   description = "Path to the zipped dist/function produced by scripts/build-function.sh."
 }
-variable "package_sha" {
-  type        = string
-  description = "SHA-256 of the zip; changes force a redeploy (decision P5)."
-}
 variable "app_settings" {
   type        = map(string)
   description = "BONFIRE_* and DISCORD_* settings from docs/contracts/configuration.md."

@@ -41,6 +41,12 @@ def render(message_id: str, **placeholders: Any) -> str:
     return MESSAGES[message_id].format(**placeholders)
 
 
+def describe_error(exc: BaseException) -> str:
+    """Class name plus HTTP status when present; never the message, which may carry a URL with a token."""
+    status = getattr(getattr(exc, "response", None), "status_code", None)
+    return f"{type(exc).__name__}{f' {status}' if status is not None else ''}"
+
+
 def mention(user_id: str) -> str:
     return f"<@{user_id}>"
 

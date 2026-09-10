@@ -35,11 +35,17 @@ locals {
   }
 }
 
+locals {
+  function_dist = "${path.root}/../../../dist/function"
+  # The zip path carries a content hash: azurerm redeploys only when zip_deploy_file changes.
+  function_dist_hash = sha1(join("", [for f in sort(fileset(local.function_dist, "**")) : filesha1("${local.function_dist}/${f}")]))
+}
+
 # scripts/build-function.sh must have run before plan; CI and the README say so.
 data "archive_file" "function" {
   type        = "zip"
-  source_dir  = "${path.root}/../../../dist/function"
-  output_path = "${path.root}/../../../dist/function.zip"
+  source_dir  = local.function_dist
+  output_path = "${path.root}/../../../dist/function-${local.function_dist_hash}.zip"
 }
 
 module "network" {
@@ -83,7 +89,6 @@ module "controller" {
   location                   = azurerm_resource_group.pilot.location
   suffix                     = random_string.suffix.result
   package_zip                = data.archive_file.function.output_path
-  package_sha                = data.archive_file.function.output_sha256
   host_storage_uses_identity = var.host_storage_uses_identity
 
   app_settings = merge(local.bonfire_settings, {

@@ -9,9 +9,16 @@ from datetime import datetime
 from bonfire.core.clock import Clock, parse_iso
 from bonfire.core.compute import Compute
 from bonfire.core.config import Config
-from bonfire.core.discord import Replies, Webhook, extinguish_buttons, mention, render
+from bonfire.core.discord import Replies, Webhook, describe_error, extinguish_buttons, mention, render
 from bonfire.core.events import Event, EventSink
-from bonfire.core.state import PreconditionFailed, StateRow, StateTable, begin_extinguish, begin_ignite
+from bonfire.core.state import (
+    PreconditionFailed,
+    StateRow,
+    StateTable,
+    begin_extinguish,
+    begin_ignite,
+    finish_session,
+)
 from bonfire.function.reconcile import needs_power_state, reconcile
 from bonfire.function.status import status_reply
 
@@ -93,8 +100,8 @@ def _reply(ctx: Ctx, content: str, components: list | None = None) -> None:
     try:
         ctx.clients.replies.edit_original(ctx.token, content, components)
     except Exception as exc:  # the state change stands; the event carries the failure (decision P12)
-        log.warning("reply edit failed: %s", exc)
-        ctx.reply_failure = f"; reply failed: {exc}"
+        log.warning("reply edit failed: %s", describe_error(exc))
+        ctx.reply_failure = f"; reply failed: {describe_error(exc)}"
 
 
 def _record(ctx: Ctx, action: str, row: StateRow, ok: bool = True, detail: str = "",
@@ -152,7 +159,19 @@ def _ignite(ctx: Ctx) -> None:
             new = c.state.write(new)
         except PreconditionFailed:
             continue
-        c.compute.start()
+        try:
+            c.compute.start()
+        except Exception as exc:
+            log.error("vm start failed: %s", describe_error(exc))
+            reverted = new.copy()
+            finish_session(reverted, _now(ctx))  # back to out; no hours (session_ended_at is None)
+            try:
+                c.state.write(reverted)
+            except PreconditionFailed:
+                log.warning("row moved while reverting a failed ignite; leaving it to reconciliation")
+            _reply(ctx, render("status_out"))
+            _record(ctx, "ignite", reverted, ok=False, detail=f"vm start failed: {describe_error(exc)}")
+            return
         _reply(ctx, render("igniting"))
         _record(ctx, "ignite", new, detail="vm start accepted")
         return
@@ -194,7 +213,7 @@ def _extinguish_button(ctx: Ctx, parts: list[str]) -> None:
         try:
             c.replies.follow_up(ctx.token, render("confirm_not_yours"), ephemeral=True)
         except Exception as exc:
-            log.warning("ephemeral follow-up failed: %s", exc)
+            log.warning("ephemeral follow-up failed: %s", describe_error(exc))
         return
     if _now(ctx).timestamp() - issued > CONFIRM_WINDOW_SECONDS:
         _reply(ctx, render("confirm_expired"), [])

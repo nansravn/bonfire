@@ -12,7 +12,7 @@ from bonfire.agent.backup import BackupStore, clear_staging
 from bonfire.core.clock import Clock
 from bonfire.core.compute import Compute
 from bonfire.core.config import UNKNOWN_ALERT_MINUTES, Config
-from bonfire.core.discord import Webhook, render
+from bonfire.core.discord import Webhook, describe_error, render
 from bonfire.core.events import Event, EventSink
 from bonfire.core.state import PreconditionFailed, StateRow, StateTable, begin_extinguish, begin_ignite
 
@@ -53,7 +53,7 @@ def _post(c: AgentClients, message_id: str, **placeholders) -> None:
     try:
         c.webhook.post(render(message_id, **placeholders))
     except Exception as exc:  # the state change stands
-        log.warning("webhook post failed: %s", exc)
+        log.warning("webhook post failed: %s", describe_error(exc))
 
 
 def _tick(c: AgentClients) -> None:

@@ -7,4 +7,4 @@ Wants=bonfire-game.service
 Type=oneshot
 EnvironmentFile=/etc/bonfire/bonfire.env
 ExecStart=/opt/bonfire/venv/bin/python -m bonfire.agent
-TimeoutStartSec=240
+TimeoutStartSec=600
