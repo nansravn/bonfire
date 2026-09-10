@@ -59,6 +59,8 @@ module "vm" {
   key_vault_name       = module.secrets.key_vault_name
   git_ref              = var.bonfire_git_ref
   repo_url             = var.repo_url
+
+  shutdown_notification_email = var.alert_email
 }
 
 module "iam" {
@@ -67,4 +69,25 @@ module "iam" {
   vm_principal_id     = module.vm.principal_id
   key_vault_id        = module.secrets.key_vault_id
   backup_container_id = module.backup.container_id
+}
+
+# PRD section 8: cost alert at 80% of the monthly ceiling (section 10).
+resource "azurerm_consumption_budget_resource_group" "pilot" {
+  count             = var.alert_email != "" ? 1 : 0
+  name              = "budget-bonfire-pilot"
+  resource_group_id = azurerm_resource_group.pilot.id
+  amount            = var.monthly_budget_usd
+  time_grain        = "Monthly"
+
+  time_period {
+    start_date = "2026-09-01T00:00:00Z"
+  }
+
+  notification {
+    enabled        = true
+    threshold      = 80
+    operator       = "GreaterThan"
+    threshold_type = "Actual"
+    contact_emails = [var.alert_email]
+  }
 }
