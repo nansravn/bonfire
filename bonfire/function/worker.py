@@ -9,9 +9,9 @@ from datetime import datetime
 from bonfire.core.clock import Clock, parse_iso
 from bonfire.core.compute import Compute
 from bonfire.core.config import Config
-from bonfire.core.discord import Replies, Webhook, render
+from bonfire.core.discord import Replies, Webhook, extinguish_buttons, mention, render
 from bonfire.core.events import Event, EventSink
-from bonfire.core.state import PreconditionFailed, StateRow, StateTable, begin_ignite
+from bonfire.core.state import PreconditionFailed, StateRow, StateTable, begin_extinguish, begin_ignite
 from bonfire.function.reconcile import needs_power_state, reconcile
 from bonfire.function.status import status_reply
 
@@ -159,5 +159,67 @@ def _ignite(ctx: Ctx) -> None:
     _conflict(ctx, "ignite")
 
 
-COMMANDS = {"ignite": _ignite, "check": _check, "cost": _cost}
-BUTTONS: dict = {}
+def _extinguish(ctx: Ctx) -> None:
+    c = ctx.clients
+    for _ in range(MAX_ATTEMPTS):
+        row = _read_reconciled(ctx)
+        if row is None:
+            continue
+        if row.vm_state != "lit":
+            _status(ctx, "extinguish", row)
+            return
+        if row.last_player_count > 0:
+            buttons = extinguish_buttons(ctx.user_id, int(_now(ctx).timestamp()))
+            _reply(ctx, render("confirm_extinguish", n=row.last_player_count), buttons)
+            return
+        new = begin_extinguish(row.copy(), _now(ctx))
+        try:
+            new = c.state.write(new)
+        except PreconditionFailed:
+            continue
+        _reply(ctx, render("extinguished_manual", user=mention(ctx.user_id)))
+        _record(ctx, "extinguish", new, player_count=None if row.last_player_count < 0 else row.last_player_count)
+        return
+    _conflict(ctx, "extinguish")
+
+
+CONFIRM_WINDOW_SECONDS = 120
+
+
+def _extinguish_button(ctx: Ctx, parts: list[str]) -> None:
+    """custom_id = extinguish:<confirm|cancel>:<owner user id>:<unix ts> (docs/contracts/discord.md)."""
+    c = ctx.clients
+    verb, owner, issued = parts[1], parts[2], int(parts[3])
+    if ctx.user_id != owner:
+        try:
+            c.replies.follow_up(ctx.token, render("confirm_not_yours"), ephemeral=True)
+        except Exception as exc:
+            log.warning("ephemeral follow-up failed: %s", exc)
+        return
+    if _now(ctx).timestamp() - issued > CONFIRM_WINDOW_SECONDS:
+        _reply(ctx, render("confirm_expired"), [])
+        return
+    if verb == "cancel":
+        _reply(ctx, render("confirm_cancelled"), [])
+        return
+    for _ in range(MAX_ATTEMPTS):
+        row = _read_reconciled(ctx)
+        if row is None:
+            continue
+        if row.vm_state != "lit":
+            _reply(ctx, status_reply(row, _now(ctx), c.config), [])
+            return
+        n = max(row.last_player_count, 0)
+        new = begin_extinguish(row.copy(), _now(ctx))
+        try:
+            new = c.state.write(new)
+        except PreconditionFailed:
+            continue
+        _reply(ctx, render("extinguished_manual_with_players", user=mention(ctx.user_id), n=n), [])
+        _record(ctx, "extinguish", new, player_count=n)
+        return
+    _conflict(ctx, "extinguish")
+
+
+COMMANDS = {"ignite": _ignite, "extinguish": _extinguish, "check": _check, "cost": _cost}
+BUTTONS = {"extinguish": _extinguish_button}
