@@ -48,5 +48,5 @@ Feature: Concurrent commands and lock expiry
   Scenario: Extinguish during igniting is refused by the lock
     Given the bonfire is igniting with lock_until 3 minutes ahead
     When a member runs "/bonfire extinguish"
-    Then the reply is message "status_igniting"
+    Then the reply is message "status_igniting" with m 2
     And the state row is unchanged
