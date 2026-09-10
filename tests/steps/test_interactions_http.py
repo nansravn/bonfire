@@ -59,3 +59,17 @@ def test_headers_are_case_insensitive(signer):
     body = json.dumps({"type": 1}).encode()
     headers = {k.lower(): v for k, v in signer.headers("1700000000", body).items()}
     assert handle_http(headers, body, signer.public_key_hex, NOW).status == 200
+
+
+def test_malformed_json_is_400(signer):
+    body = b"{not json"
+    headers = signer.headers("1700000000", body)
+    result = handle_http(headers, body, signer.public_key_hex, NOW)
+    assert result.status == 400 and result.queue_message is None
+
+
+@pytest.mark.parametrize("body", [b"[1,2,3]", b"42", b"null", b'"a string"'])
+def test_non_object_json_is_400(signer, body):
+    headers = signer.headers("1700000000", body)
+    result = handle_http(headers, body, signer.public_key_hex, NOW)
+    assert result.status == 400 and result.queue_message is None

@@ -30,6 +30,8 @@ def handle_http(headers: Mapping[str, str], body: bytes, public_key_hex: str, no
         interaction = json.loads(body)
     except ValueError:
         return HttpResult(400, None)
+    if not isinstance(interaction, dict):
+        return HttpResult(400, None)
     kind = interaction.get("type")
     if kind == PING:
         return HttpResult(200, {"type": PONG})
