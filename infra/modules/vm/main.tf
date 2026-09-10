@@ -20,6 +20,7 @@ resource "azurerm_linux_virtual_machine" "this" {
   disable_password_authentication = true
   network_interface_ids           = [var.nic_id]
   custom_data                     = base64encode(local.cloud_init)
+  disk_controller_type            = var.disk_controller_type
 
   admin_ssh_key {
     username   = "bonfire"

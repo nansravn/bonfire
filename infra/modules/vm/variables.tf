@@ -2,6 +2,11 @@ variable "resource_group_name" { type = string }
 variable "location" { type = string }
 variable "nic_id" { type = string }
 variable "vm_size" { type = string }
+variable "disk_controller_type" {
+  type        = string
+  default     = "NVMe"
+  description = "SCSI or NVMe; v6 sizes and newer are NVMe-only."
+}
 variable "admin_ssh_public_key" { type = string }
 variable "data_disk_gb" { type = number }
 variable "game" { type = string }
