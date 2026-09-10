@@ -14,7 +14,7 @@ Feature: Valheim adapter conformance
   Scenario: adapter.json declares ports and the two tunables
     Given the games/valheim directory
     When adapter.json is parsed
-    Then ports contains 2456/udp and 2457/udp
+    Then ports contains 2456/udp only
     And stop_grace_seconds is 60 and ready_timeout_minutes is 10
 
   @contract

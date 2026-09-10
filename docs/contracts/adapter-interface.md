@@ -8,7 +8,7 @@ An adapter is everything Bonfire knows about one game. The core never inspects a
 |---|---|
 | `docker-compose.yml` | The game server image and its configuration. Must mount `${BONFIRE_DATA_DIR}` for saves. |
 | `adapter.sh` | Executable implementing the subcommands below. Bash; may call other tools it installs. |
-| `adapter.json` | Game metadata read by Terraform and the agent. Shape: `{"ports": [{"port": 2456, "proto": "udp"}, {"port": 2457, "proto": "udp"}], "stop_grace_seconds": 60, "ready_timeout_minutes": 10}`. `proto` is `udp` or `tcp`; the first port is the one players connect to. |
+| `adapter.json` | Game metadata read by Terraform and the agent. Shape: `{"ports": [{"port": 2456, "proto": "udp"}], "stop_grace_seconds": 60, "ready_timeout_minutes": 10}`. `proto` is `udp` or `tcp`; the first port is the one players connect to. Query ports the adapter itself uses (Valheim's 2457) are not listed: they stay loopback-only. |
 | `README.md` | Game-specific notes: image, known issues, how player count is obtained. |
 
 ## Environment
@@ -37,7 +37,7 @@ Every subcommand writes diagnostics to stderr only. Stdout carries only the valu
 | `stop` | Stop with a clean save. Must wait up to `BONFIRE_STOP_GRACE_SECONDS` for the save before forcing. | none | 0 stopped, 1 failed | grace + 60 s | yes |
 | `is_ready` | Report whether the game accepts connections | none | 0 ready, 1 not ready, 2 cannot tell | 10 s | yes |
 | `player_count` | Report connected players | one line: a non-negative integer, or `unknown` | 0 printed a value, 1 failed | 10 s | yes |
-| `health` | Report process health: `ok` when the container is running; `degraded` when Docker is restarting it or has restarted it since the previous call; `crashed` when it has exited and Docker no longer restarts it | one line: `ok`, `degraded` or `crashed` | 0 printed a value, 1 failed | 10 s | yes |
+| `health` | Report process health: `ok` when the container is running; `degraded` when Docker is restarting it or has restarted it since the previous call; `crashed` when it has exited and Docker no longer restarts it. `crashed` also covers the case where no container exists (for example after `stop`); callers consult `health` only while the game is expected to be running. | one line: `ok`, `degraded` or `crashed` | 0 printed a value, 1 failed | 10 s | yes |
 | `backup` | Copy saves into `BONFIRE_BACKUP_DIR` | none | 0 copied, 1 failed | 5 min | yes |
 
 Timeouts are enforced by the caller. A timed-out `player_count` or `health` is treated as `unknown`; a timed-out anything else is a failure.

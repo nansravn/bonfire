@@ -13,15 +13,17 @@ Terraform provisions every Azure resource. The repository is laid out so that ea
 
 ```
 infra/
+  bootstrap/   one-time script creating the Terraform state storage account
   modules/
     network/     vnet, subnet, nsg (rules from the adapter's adapter.json), static public IP (Standard)
     vm/          D4as v5, Premium OS disk, separate data disk, managed identity, cloud-init
-    controller/  function app (consumption), storage account, table, app settings
-    data/        cosmos serverless, events container (ttl = 90 days)
-    iam/         function -> VM Contributor scoped to the VM; VM -> may deallocate itself
-    secrets/     key vault + access policies
+    iam/         VM -> may deallocate itself, read its secret, write backups; later: function -> VM Contributor
+    secrets/     key vault (RBAC) + the game password
+    backup/      storage account + "backups" container with a 7-day lifecycle rule
+    controller/  (Phase 1) function app, storage account, table, app settings
+    data/        (Phase 1) cosmos serverless, events container
   envs/
-    pilot/       terraform.tfvars
+    pilot/       root module, backend.hcl, terraform.tfvars
 games/
   <name>/
     docker-compose.yml
@@ -43,7 +45,7 @@ Rejected. Not reproducible from scratch; the PRD's "VM is disposable" goal depen
 
 ## Consequences
 
-- Adapters declare their ports in `adapter.json`, not a `.tf` file: Terraform cannot select a `.tf` file or module source by variable, but it can read `jsondecode(file("${path.root}/../../games/${var.game}/adapter.json")).ports`.
+- Adapters declare their ports in `adapter.json`, not a `.tf` file: Terraform cannot select a `.tf` file or module source by variable, but it can read `jsondecode(file("${path.root}/../../../games/${var.game}/adapter.json")).ports`. The root module is `infra/envs/pilot`, three levels below the repository root.
 - Terraform needs a state backend. The pilot uses an `azurerm` backend in a small bootstrap storage account created once outside Terraform; the Phase 0 spec details the bootstrap.
 - Configuration values flow from Terraform variables to Function app settings and the agent's environment file; the mapping is in [contracts/configuration.md](../contracts/configuration.md).
 - Destroying and re-creating the VM keeps the data disk and its saves.

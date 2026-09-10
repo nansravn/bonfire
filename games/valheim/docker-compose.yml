@@ -1,0 +1,18 @@
+# Valheim dedicated server for Bonfire. Driven only through adapter.sh.
+services:
+  valheim:
+    image: lloesche/valheim-server@sha256:bbda47cbbc9fd7b0385803ba0a70ba2084df4cb87ec6170a145aec5df06be07e  # latest as of 2026-09-09
+    network_mode: host                     # 2456/udp public via the NSG; 2457 (A2S) reachable on loopback
+    restart: on-failure:3                  # Docker owns crash restarts (adapter-interface.md rule 5)
+    stop_grace_period: ${BONFIRE_STOP_GRACE_SECONDS}s
+    env_file:
+      - ${BONFIRE_GAME_ENV_FILE}
+    environment:
+      SERVER_PORT: "2456"
+      BACKUPS: "false"       # the adapter's backup subcommand owns backups
+      UPDATE_CRON: ""        # updates happen through adapter.sh install
+    volumes:
+      - ${BONFIRE_DATA_DIR}/config:/config      # worlds under /config/worlds_local
+      - ${BONFIRE_DATA_DIR}/server:/opt/valheim # game files survive `compose down`
+    cap_add:
+      - SYS_NICE
