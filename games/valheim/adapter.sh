@@ -19,7 +19,9 @@ compose() { docker compose --project-directory "$BONFIRE_ADAPTER_DIR" "$@"; }
 container_id() { compose ps -q valheim 2>/dev/null || true; }
 container_status() {  # prints "<status> <restart_count>" or nothing
   local cid; cid=$(container_id)
-  [ -n "$cid" ] && docker inspect -f '{{.State.Status}} {{.RestartCount}}' "$cid" 2>/dev/null || true
+  if [ -n "$cid" ]; then
+    docker inspect -f '{{.State.Status}} {{.RestartCount}}' "$cid" 2>/dev/null || true
+  fi
 }
 a2s() { "$PY" "$BONFIRE_ADAPTER_DIR/a2s_query.py" "$A2S_HOST" "$A2S_PORT"; }
 
