@@ -153,3 +153,16 @@ class FakeCompute:
 
     def power_state(self) -> str:
         return self.power
+
+
+class FakeBackupStore:
+    def __init__(self) -> None:
+        self.uploads: list[tuple[str, list[str]]] = []
+        self.fail = False
+
+    def upload(self, staging_dir: Path, prefix: str) -> int:
+        if self.fail:
+            raise RuntimeError("blob unavailable")
+        files = sorted(str(p.relative_to(staging_dir)) for p in Path(staging_dir).rglob("*") if p.is_file())
+        self.uploads.append((prefix, files))
+        return len(files)
