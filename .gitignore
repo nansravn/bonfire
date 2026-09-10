@@ -5,6 +5,7 @@
 *.tfstate.*
 terraform.tfvars
 crash.log
+*.tfplan
 # Python
 __pycache__/
 .pytest_cache/
