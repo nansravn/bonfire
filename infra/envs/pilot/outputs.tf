@@ -4,3 +4,7 @@ output "vm_name" { value = module.vm.vm_name }
 output "resource_group" { value = azurerm_resource_group.pilot.name }
 output "key_vault_name" { value = module.secrets.key_vault_name }
 output "backup_storage_account" { value = module.backup.storage_account_name }
+output "function_url" { value = module.controller.function_url }
+output "function_app_name" { value = module.controller.function_app_name }
+output "cosmos_endpoint" { value = module.data.endpoint }
+output "state_table_endpoint" { value = module.controller.state_table_endpoint }

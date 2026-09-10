@@ -19,6 +19,10 @@ write_files:
       BONFIRE_PUBLIC_ADDRESS=${public_address}
       BONFIRE_GAME_ENV_FILE=/etc/bonfire/${game}.env
       BONFIRE_RUN_DIR=/run/bonfire
+      BONFIRE_GIT_REF=${git_ref}
+%{ for k, v in agent_env ~}
+      ${k}=${v}
+%{ endfor ~}
 
   - path: /etc/bonfire/${game}.env
     permissions: "0600"
@@ -44,7 +48,7 @@ write_files:
       while True:
           try:
               tok = json.load(urllib.request.urlopen(urllib.request.Request(imds, headers={"Metadata": "true"}), timeout=10))["access_token"]
-              url = "https://" + vault + ".vault.azure.net/secrets/" + name + "?api-version=7.4"
+              url = "https://" + vault + ".vault.azure.net/secrets/" + urllib.parse.quote(name, safe="") + "?api-version=7.4"
               val = json.load(urllib.request.urlopen(urllib.request.Request(url, headers={"Authorization": "Bearer " + tok}), timeout=10))["value"]
               sys.stdout.write(val)
               sys.exit(0)
@@ -61,7 +65,7 @@ write_files:
       [Unit]
       Description=Bonfire game server (${game})
       Requires=docker.service
-      After=docker.service network-online.target data.mount
+      After=docker.service network-online.target data.mount bonfire-update.service
       RequiresMountsFor=/data
 
       [Service]
@@ -72,6 +76,26 @@ write_files:
       ExecStop=/opt/bonfire/games/${game}/adapter.sh stop
       TimeoutStartSec=300
       TimeoutStopSec=${stop_timeout_seconds}
+
+      [Install]
+      WantedBy=multi-user.target
+
+  # Bootstrap copy of the update unit; bonfire-update.sh refreshes it from the checkout on every boot.
+  - path: /etc/systemd/system/bonfire-update.service
+    content: |
+      [Unit]
+      Description=Bonfire: update the checkout and the agent package
+      Wants=network-online.target
+      After=network-online.target data.mount
+      RequiresMountsFor=/data
+      Before=bonfire-game.service bonfire-agent.timer
+
+      [Service]
+      Type=oneshot
+      RemainAfterExit=yes
+      EnvironmentFile=/etc/bonfire/bonfire.env
+      ExecStart=/opt/bonfire/agent/bonfire-update.sh
+      TimeoutStartSec=600
 
       [Install]
       WantedBy=multi-user.target
@@ -104,20 +128,24 @@ runcmd:
     mount -a
     if ! mountpoint -q /data; then echo "bonfire: /data is not mounted; refusing to continue" >&2; exit 1; fi
     mkdir -p /data/${game}/config /data/${game}/server /data/backup-staging/${game}
-  # Repository, A2S helper environment, runtime directory.
+  # Repository, the agent package in its venv, runtime directory.
   - git clone ${repo_url} /opt/bonfire
   - git -C /opt/bonfire checkout ${git_ref}
   - python3 -m venv /opt/bonfire/venv
-  - /opt/bonfire/venv/bin/pip install --quiet python-a2s
+  - /opt/bonfire/venv/bin/pip install --quiet "/opt/bonfire[agent]"
   - systemd-tmpfiles --create /etc/tmpfiles.d/bonfire.conf
-  # Game password from Key Vault, appended to the game env file.
+  # Secrets from Key Vault: the game password into the game env, the webhook URL into bonfire.env.
   - |
     PASS=$(/usr/local/sbin/bonfire-fetch-secret ${key_vault_name} ${game}-server-password)
     if [ -z "$PASS" ]; then echo "bonfire: empty game password from Key Vault; refusing to continue" >&2; exit 1; fi
     printf 'SERVER_PASS=%s\n' "$PASS" >> /etc/bonfire/${game}.env
-  # First install, then the service that owns start on boot and clean stop on shutdown.
+    HOOK=$(/usr/local/sbin/bonfire-fetch-secret ${key_vault_name} discord-webhook-url)
+    if [ -z "$HOOK" ]; then echo "bonfire: empty webhook URL from Key Vault; refusing to continue" >&2; exit 1; fi
+    printf 'DISCORD_WEBHOOK_URL=%s\n' "$HOOK" >> /etc/bonfire/bonfire.env
+  # First install, then the units: update (copies the agent units), game, agent timer.
   - |
     set -a; . /etc/bonfire/bonfire.env; set +a
     /opt/bonfire/games/${game}/adapter.sh install
+    /opt/bonfire/agent/bonfire-update.sh
   - systemctl daemon-reload
-  - systemctl enable --now bonfire-game.service
+  - systemctl enable --now bonfire-update.service bonfire-game.service bonfire-agent.timer

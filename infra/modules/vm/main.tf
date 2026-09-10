@@ -8,6 +8,7 @@ locals {
     key_vault_name       = var.key_vault_name
     git_ref              = var.git_ref
     repo_url             = var.repo_url
+    agent_env            = var.agent_env
   })
 }
 

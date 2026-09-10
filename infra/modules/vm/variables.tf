@@ -36,3 +36,7 @@ variable "shutdown_notification_email" {
   default     = ""
   description = "Email warned 30 minutes before the nightly shutdown; empty disables the notification."
 }
+variable "agent_env" {
+  type        = map(string)
+  description = "BONFIRE_* settings appended to /etc/bonfire/bonfire.env (docs/contracts/configuration.md)."
+}
