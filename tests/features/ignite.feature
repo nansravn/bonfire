@@ -27,7 +27,7 @@ Feature: Ignite the bonfire
   Scenario: Ignite while lit only replies with status
     Given the bonfire is lit with 2 players online
     When a member runs "/bonfire ignite"
-    Then the reply is message "status_lit"
+    Then the reply is message "status_lit" with n 2, h 1, mm 00
     And no VM start is requested
     And the state row is unchanged
 
@@ -35,7 +35,7 @@ Feature: Ignite the bonfire
   Scenario: Ignite while igniting only replies with status
     Given the bonfire is igniting
     When a member runs "/bonfire ignite"
-    Then the reply is message "status_igniting"
+    Then the reply is message "status_igniting" with m 1
     And no VM start is requested
 
   @unit

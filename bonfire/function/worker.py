@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import logging
+import uuid
 from dataclasses import dataclass
 from datetime import datetime
 
@@ -10,7 +11,7 @@ from bonfire.core.compute import Compute
 from bonfire.core.config import Config
 from bonfire.core.discord import Replies, Webhook, render
 from bonfire.core.events import Event, EventSink
-from bonfire.core.state import PreconditionFailed, StateRow, StateTable
+from bonfire.core.state import PreconditionFailed, StateRow, StateTable, begin_ignite
 from bonfire.function.reconcile import needs_power_state, reconcile
 from bonfire.function.status import status_reply
 
@@ -137,5 +138,26 @@ def _cost(ctx: Ctx) -> None:
     _record(ctx, "cost", row, detail=f"{hours:.2f} h")
 
 
-COMMANDS = {"check": _check, "cost": _cost}
+def _ignite(ctx: Ctx) -> None:
+    c = ctx.clients
+    for _ in range(MAX_ATTEMPTS):
+        row = _read_reconciled(ctx)
+        if row is None:
+            continue
+        if row.vm_state != "out":
+            _status(ctx, "ignite", row)
+            return
+        new = begin_ignite(row.copy(), _now(ctx), str(uuid.uuid4()))
+        try:
+            new = c.state.write(new)
+        except PreconditionFailed:
+            continue
+        c.compute.start()
+        _reply(ctx, render("igniting"))
+        _record(ctx, "ignite", new, detail="vm start accepted")
+        return
+    _conflict(ctx, "ignite")
+
+
+COMMANDS = {"ignite": _ignite, "check": _check, "cost": _cost}
 BUTTONS: dict = {}
