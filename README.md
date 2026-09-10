@@ -35,7 +35,7 @@ DISCORD_BOT_TOKEN=$(az keyvault secret show --vault-name "$(terraform -chdir=inf
 
 Day to day: `/bonfire ignite`, `/bonfire check`, `/bonfire extinguish`, `/bonfire cost` in Discord.
 
-Two cost backstops are provisioned: an Azure budget of US$120/month with an alert at 80%, and a nightly auto-deallocate at 04:00 São Paulo time (`shutdown_time` in the vm module).
+Two cost backstops are provisioned: an Azure budget of US$120/month with an alert at 80%, and a nightly auto-deallocate at 04:00 São Paulo time (`shutdown_time` in the vm module). The nightly shutdown is interim: remove it once the agent's idle timer (Phase 1) is proven to extinguish an empty server after the configured `idle_timeout_minutes`.
 
 `terraform destroy` refuses to run while the data disk is under Terraform management (`prevent_destroy`); to tear everything down, run `terraform state rm module.vm.azurerm_managed_disk.data` first, and note that deleting the resource group deletes the world with it. For day-to-day use, cycle the VM with `az vm deallocate` and `az vm start`, which keep the disk and the world. Unit level: `pip install -e ".[test]" && pytest -m unit tests/`. Adapter contract: `pytest -m contract tests/`.
 
