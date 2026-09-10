@@ -6,6 +6,7 @@ from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Callable
 
+from bonfire.core.events import Event
 from bonfire.core.state import PreconditionFailed, StateRow
 
 
@@ -67,3 +68,66 @@ class FakeStateTable:
         row = self._row.copy()
         row.etag = str(self._etag)
         return row
+
+
+class FakeEvents:
+    def __init__(self) -> None:
+        self.items: list[Event] = []
+
+    def record(self, event: Event) -> None:
+        event.to_document()  # validates the shape the way the real sink would
+        self.items.append(event)
+
+
+class FakeWebhook:
+    def __init__(self) -> None:
+        self.posts: list[str] = []
+
+    def post(self, content: str) -> None:
+        self.posts.append(content)
+
+
+@dataclasses.dataclass
+class Edit:
+    token: str
+    content: str
+    components: list
+
+
+@dataclasses.dataclass
+class FollowUp:
+    token: str
+    content: str
+    ephemeral: bool
+
+
+class FakeReplies:
+    def __init__(self) -> None:
+        self.edits: list[Edit] = []
+        self.follow_ups: list[FollowUp] = []
+
+    def edit_original(self, token: str, content: str, components: list | None = None) -> None:
+        self.edits.append(Edit(token, content, components or []))
+
+    def follow_up(self, token: str, content: str, ephemeral: bool = False) -> None:
+        self.follow_ups.append(FollowUp(token, content, ephemeral))
+
+    def edits_for(self, token: str) -> list[Edit]:
+        return [e for e in self.edits if e.token == token]
+
+
+class Signer:
+    """A test Ed25519 key pair that signs payloads the way Discord does."""
+
+    def __init__(self) -> None:
+        from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
+        from cryptography.hazmat.primitives.serialization import Encoding, PublicFormat
+
+        self._key = Ed25519PrivateKey.generate()
+        self.public_key_hex = self._key.public_key().public_bytes(Encoding.Raw, PublicFormat.Raw).hex()
+
+    def headers(self, timestamp: str, body: bytes) -> dict[str, str]:
+        return {
+            "X-Signature-Ed25519": self._key.sign(timestamp.encode() + body).hex(),
+            "X-Signature-Timestamp": timestamp,
+        }
