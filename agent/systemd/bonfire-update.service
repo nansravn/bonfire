@@ -1,0 +1,16 @@
+[Unit]
+Description=Bonfire: update the checkout and the agent package
+Wants=network-online.target
+After=network-online.target data.mount
+RequiresMountsFor=/data
+Before=bonfire-game.service bonfire-agent.timer
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+EnvironmentFile=/etc/bonfire/bonfire.env
+ExecStart=/opt/bonfire/agent/bonfire-update.sh
+TimeoutStartSec=600
+
+[Install]
+WantedBy=multi-user.target

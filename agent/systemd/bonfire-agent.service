@@ -1,0 +1,10 @@
+[Unit]
+Description=Bonfire agent check
+After=bonfire-update.service bonfire-game.service docker.service
+Wants=bonfire-game.service
+
+[Service]
+Type=oneshot
+EnvironmentFile=/etc/bonfire/bonfire.env
+ExecStart=/opt/bonfire/venv/bin/python -m bonfire.agent
+TimeoutStartSec=240
