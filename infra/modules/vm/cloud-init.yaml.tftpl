@@ -62,6 +62,7 @@ write_files:
       Description=Bonfire game server (${game})
       Requires=docker.service
       After=docker.service network-online.target data.mount
+      RequiresMountsFor=/data
 
       [Service]
       Type=oneshot
@@ -104,6 +105,7 @@ runcmd:
   # Game password from Key Vault, appended to the game env file.
   - |
     PASS=$(/usr/local/sbin/bonfire-fetch-secret ${key_vault_name} ${game}-server-password)
+    if [ -z "$PASS" ]; then echo "bonfire: empty game password from Key Vault; refusing to continue" >&2; exit 1; fi
     printf 'SERVER_PASS=%s\n' "$PASS" >> /etc/bonfire/${game}.env
   # First install, then the service that owns start on boot and clean stop on shutdown.
   - |

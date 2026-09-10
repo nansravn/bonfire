@@ -1,3 +1,11 @@
+terraform {
+  required_providers {
+    time = {
+      source = "hashicorp/time"
+    }
+  }
+}
+
 resource "azurerm_key_vault" "this" {
   name                       = "kv-bonfire-${var.suffix}"
   resource_group_name        = var.resource_group_name

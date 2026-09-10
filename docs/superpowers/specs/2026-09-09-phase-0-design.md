@@ -100,7 +100,7 @@ Rendered from a template with the game name, Key Vault name, git ref, `game_env`
 
 ### 4.6 Operations in Phase 0
 
-`az vm start -g rg-bonfire-pilot -n vm-bonfire` and `az vm deallocate ...`. Every test session ends deallocated. `terraform destroy` removes everything except the data disk, which `prevent_destroy` protects; destroying it is a deliberate two-step the README explains.
+`az vm start -g rg-bonfire-pilot -n vm-bonfire` and `az vm deallocate ...`. Every test session ends deallocated. `prevent_destroy` on the data disk makes `terraform destroy` refuse until the disk is removed from state; deleting the resource group deletes the disk regardless. Day-to-day cycling is deallocate and start. Moving the disk to its own resource group is a Phase 1 consideration.
 
 ## 5. Valheim adapter
 
@@ -185,9 +185,18 @@ No Azure credentials in CI during Phase 0.
 - `pytest -m contract tests/` passes on the owner's machine and in CI.
 - The three `@e2e` scenarios pass on the VM; the `-public 0` probe result is recorded here.
 - `az vm deallocate` leaves the world files intact and `az vm start` brings the game back to ready without cloud-init running again.
-- `terraform destroy` followed by `apply` reuses the data disk and the world.
+- Replacing the VM (for example by changing `game_env`, which changes cloud-init) reuses the data disk and the world; `terraform destroy` refuses while the disk is managed.
 - `python3 scripts/check_docs.py` prints `OK`; every amendment in section 8 is applied.
 
 ## 11. Phase 0 results
 
 Appended after execution: e2e outcomes, boot timings, and the `-public 0` probe result.
+
+### Amendments during execution
+
+- Worlds: the current server writes a per-world directory `config/worlds_local/<WORLD_NAME>/` (`_main.N.db2`, `.fwl2`, `.ok`, `.chunks`, chunk files), not a flat `.db`/`.fwl` pair. `adapter.sh backup` copies the directory (legacy pair still supported); the tests treat every file under it as a world file. Section 5.3's description is superseded.
+- Data layout: `$BONFIRE_DATA_DIR/config` is the container's `/config` and `$BONFIRE_DATA_DIR/server` is `/opt/valheim`, so the 2.1 GB game download survives `compose down` (plan decision P1).
+- Crash simulation: Docker ignores its restart policy after an API-level `docker kill`, so scenario 9 switches the policy to `always`, stops the container's init from inside, and restores `on-failure:3`. Inside the image, supervisord restarts a crashed game process without the container exiting.
+- Image pinned to `lloesche/valheim-server@sha256:bbda47cbbc9fd7b0385803ba0a70ba2084df4cb87ec6170a145aec5df06be07e` on 2026-09-09; tests read the reference from the compose file.
+- The full contract suite could not complete on the owner's WSL2 host (SteamCMD download stalls); the GitHub-hosted `adapter-contract` workflow is the gate.
+- `/data` is mounted by filesystem label rather than UUID.

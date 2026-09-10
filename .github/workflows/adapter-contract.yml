@@ -1,4 +1,6 @@
 name: adapter-contract
+permissions:
+  contents: read
 on:
   push:
     paths: ["games/**", "tests/**", ".github/workflows/adapter-contract.yml"]
@@ -8,7 +10,7 @@ on:
 jobs:
   contract:
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 45
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -16,6 +18,7 @@ jobs:
           python-version: "3.12"
       - run: pip install -r tests/requirements.txt
       - name: Free disk space
+        # The Valheim server is 2.1 GB; hosted runners are tight on disk. A quoted, unset $AGENT_TOOLSDIRECTORY expands to "" and rm ignores it.
         run: sudo rm -rf /usr/share/dotnet /opt/ghc /usr/local/share/boost "$AGENT_TOOLSDIRECTORY"
       - name: Adapter contract scenarios
         run: pytest -m contract tests/ -v

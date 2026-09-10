@@ -29,6 +29,6 @@ az vm deallocate -g rg-bonfire-pilot -n vm-bonfire         # stop
 az vm start -g rg-bonfire-pilot -n vm-bonfire              # start; the game comes up by itself
 ```
 
-`terraform destroy` keeps the data disk (`prevent_destroy`); to delete the world as well, remove the `prevent_destroy` line in `infra/modules/vm/main.tf` first. Adapter tests: `pip install -r tests/requirements.txt && pytest -m contract tests/`.
+`terraform destroy` refuses to run while the data disk is under Terraform management (`prevent_destroy`); to tear everything down, run `terraform state rm module.vm.azurerm_managed_disk.data` first, and note that deleting the resource group deletes the world with it. For day-to-day use, cycle the VM with `az vm deallocate` and `az vm start`, which keep the disk and the world. Adapter tests: `pip install -r tests/requirements.txt && pytest -m contract tests/`.
 
 Status: Phase 0 in progress (Terraform and the Valheim adapter).

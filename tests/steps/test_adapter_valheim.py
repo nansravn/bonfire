@@ -5,10 +5,9 @@ import pathlib
 import subprocess
 import time
 
-import pytest
 from pytest_bdd import given, parsers, scenarios, then, when
 
-from conftest import ADAPTER_DIR, CONTAINER, IMAGE, WORLD
+from conftest import ADAPTER_DIR, CONTAINER, IMAGE
 
 scenarios("adapter-valheim.feature")
 
