@@ -11,8 +11,17 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: hashicorp/setup-terraform@v3
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
       - name: Documentation checker
         run: python3 scripts/check_docs.py
+      - name: Install the package
+        run: pip install -e ".[test]"
+      - name: Unit level
+        run: pytest -m unit tests/ -q
+      - name: Stage the Function
+        run: scripts/build-function.sh
       - name: Terraform format
         run: terraform fmt -check -recursive infra
       - name: Terraform validate
@@ -20,6 +29,6 @@ jobs:
           terraform -chdir=infra/envs/pilot init -backend=false -input=false
           terraform -chdir=infra/envs/pilot validate
       - name: Shellcheck
-        run: shellcheck games/*/adapter.sh infra/bootstrap/*.sh
+        run: shellcheck games/*/adapter.sh infra/bootstrap/*.sh scripts/*.sh agent/*.sh tests/fake-adapter/adapter.sh
       - name: Python syntax
         run: python3 -m py_compile $(git ls-files '*.py')

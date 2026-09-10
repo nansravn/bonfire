@@ -13,6 +13,7 @@ One file per decision that shapes Bonfire's structure. A decision is recorded on
 | [0005](0005-storage-table-cosmos-keyvault-blob.md) | Storage: Table for state, Cosmos for events, Key Vault, Blob | Accepted |
 | [0006](0006-infrastructure-as-code-terraform.md) | Infrastructure as code: Terraform | Accepted |
 | [0007](0007-test-runner-pytest-bdd.md) | Test runner: pytest-bdd | Accepted |
+| [0008](0008-function-ack-then-queue.md) | The Function acknowledges over HTTP and does its work from a queue | Accepted |
 
 ## Template
 

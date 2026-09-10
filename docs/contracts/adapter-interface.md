@@ -49,6 +49,7 @@ Timeouts are enforced by the caller. A timed-out `player_count` or `health` is t
 3. `stop` must be called before deallocating whenever the agent is alive. Deallocating without `stop` loses unsaved progress.
 4. Callers pass no arguments beyond the subcommand. Configuration reaches the adapter only through the environment.
 5. Docker owns crash restarts. The compose file sets `restart: on-failure:3` on the game service; the agent never calls `start` in response to `health`, only on ignite or `/bonfire restart`.
+6. Callers consult `health` only while the game is expected to be running (`igniting` and `lit`). After `stop`, `crashed` means "no container", not a crash.
 
 ## Conformance
 

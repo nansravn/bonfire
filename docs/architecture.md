@@ -7,7 +7,7 @@ Bonfire starts and stops one game VM on demand. This document is the system-leve
 Four parts run Bonfire. Each owns one concern.
 
 - **Function** (Azure Functions, consumption plan). Owns: the Discord Interactions Endpoint (slash commands and button clicks), the safety-net timer, and every transition it is allowed to make in the state machine below. Depends on: the state table, the events container, the Azure Compute API for the VM, Key Vault for the bot token. Never talks to the adapter. See [ADR 0003](adr/0003-controller-azure-function-interactions-endpoint.md).
-- **Agent** (a service on the VM, run by a systemd timer every `idle_check_interval` minutes). Owns: readiness detection, the idle timer and warnings, heartbeat, crash restarts, executing `pending_command`, clean stop and self-deallocation. Depends on: the adapter CLI, the state table, the events container, the Discord webhook URL, the VM's managed identity. See [ADR 0004](adr/0004-watchdog-local-agent-primary-function-safety-net.md).
+- **Agent** (a service on the VM, run by a systemd timer every `idle_check_interval` minutes; a boot-time unit pulls `bonfire_git_ref` and reinstalls it first). Owns: readiness detection, the idle timer and warnings, heartbeat, crash restarts, executing `pending_command`, clean stop and self-deallocation. Depends on: the adapter CLI, the state table, the events container, the Discord webhook URL, the VM's managed identity. See [ADR 0004](adr/0004-watchdog-local-agent-primary-function-safety-net.md).
 - **Adapter** (a directory under `games/<name>/`: compose file, `adapter.sh`, `adapter.json`). Owns: everything game-specific. Depends on: Docker and the data disk. Contract in [contracts/adapter-interface.md](contracts/adapter-interface.md).
 - **Terraform** (`infra/`). Owns: provisioning only. Never starts or stops the VM after apply. See [ADR 0006](adr/0006-infrastructure-as-code-terraform.md).
 
@@ -15,13 +15,14 @@ Four parts run Bonfire. Each owns one concern.
 
 ```
 .github/      CI workflows
-agent/        (Phase 1) the on-VM agent and its systemd units
-function/     (Phase 1) the Azure Function app
+agent/        systemd units and the boot-time update script for the VM
+bonfire/      the Python package: core/ (shared), agent/, function/
+function/     Azure Functions deployment root (function_app.py, host.json, requirements.txt)
 infra/        Terraform: bootstrap/, envs/pilot/, modules/ (see ADR 0006)
 games/        one adapter per game
 docs/         this documentation
-tests/        features/ (Gherkin) and steps/ (pytest-bdd)
-scripts/      repository tooling
+tests/        features/ (Gherkin), steps/ (pytest-bdd), fake-adapter/
+scripts/      repository tooling: docs checker, Function build, command registration
 ```
 
 ## VM state machine
@@ -31,6 +32,7 @@ Four states. Table of every transition:
 | From | To | Trigger | Actor | Lock |
 |---|---|---|---|---|
 | out | igniting | `/bonfire ignite` | Function | takes `lock_until = now + LOCK_TTL_MINUTES` (5 min); sets `session_id`, `session_started_at` |
+| out | igniting | agent finds the VM running while the row says out (started outside Bonfire) | agent | takes lock; sets `session_id`, `session_started_at`; records `command/ignite` with actor `agent` |
 | igniting | lit | adapter `is_ready` succeeds | agent | clears lock |
 | igniting | lit (with `last_health = crashed`) | the adapter's `ready_timeout_minutes` elapsed without readiness | agent | clears lock |
 | igniting | out | reconcile: lock expired and VM power state is deallocated | Function | none |
@@ -67,6 +69,7 @@ sequenceDiagram
     Player->>Discord: /bonfire ignite
     Discord->>Function: POST interaction
     Function-->>Discord: deferred acknowledgement
+    Function->>Function: enqueue interaction (worker continues)
     Function->>State table: read state row
     Function->>Function: reconcile (rule 3) if applicable
     alt vm_state is not out
@@ -94,7 +97,7 @@ sequenceDiagram
 ```
 
 1. Player runs `/bonfire ignite`; Discord POSTs the interaction to the Function.
-2. Function validates the signature and immediately responds with a deferred acknowledgement (in channel).
+2. Function validates the signature, puts the interaction on its queue and immediately responds with a deferred acknowledgement (in channel); a queue-triggered worker performs the following steps ([ADR 0008](adr/0008-function-ack-then-queue.md)).
 3. Function reads the state row and reconciles when rule 3 applies. If `vm_state` is not `out`, it edits the reply with the status message and stops.
 4. Function writes `vm_state = igniting`, `state_since`, `session_id`, `session_started_at`, `lock_until` with If-Match. On 412 it re-reads and returns to step 3.
 5. Function calls Azure to start the VM, records a `command/ignite` event, and edits the reply to the igniting message.
@@ -124,6 +127,8 @@ sequenceDiagram
     VM/agent->>State table: write extinguishing, session_ended_at, lock_until
     VM/agent->>Discord: post burned-out message (webhook)
     VM/agent->>State table: record watchdog/idle_shutdown event
+    VM/agent->>Adapter: backup
+    VM/agent->>Azure: upload backup (blob)
     VM/agent->>Adapter: stop (clean save within stop_grace_seconds)
     VM/agent->>Azure: deallocate VM (managed identity)
     Note over VM/agent: agent dies with the VM
@@ -134,7 +139,7 @@ sequenceDiagram
 1. Every `idle_check_interval` minutes the agent runs adapter `player_count` and `health`, then writes `last_heartbeat`, `last_player_count`, `last_health`.
 2. It applies the idle rules from PRD 7.3 (warnings, cancellation, unknown handling). Each warning and cancellation is posted through the webhook and recorded as an event.
 3. When the timeout is reached with a known zero count, the agent writes `vm_state = extinguishing`, `session_ended_at`, `lock_until`; posts the burned-out message; records `watchdog/idle_shutdown`.
-4. The agent runs adapter `stop` (clean save within `stop_grace_seconds`), then calls Azure to deallocate the VM through its managed identity. The agent dies with the VM.
+4. The agent runs adapter `backup`, uploads the staging directory to the `backups` container, runs adapter `stop` (clean save within `stop_grace_seconds`), then calls Azure to deallocate the VM through its managed identity. The agent dies with the VM.
 5. The next Function handler or safety-net tick observes the VM deallocated and writes `vm_state = out`, adding the session hours.
 
 ## Crash handling
