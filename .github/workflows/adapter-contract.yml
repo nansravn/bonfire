@@ -13,12 +13,13 @@ jobs:
     timeout-minutes: 45
     steps:
       - uses: actions/checkout@v4
+      - name: Free disk space
+        # The Valheim server is 2.1 GB and hosted runners are tight on disk. Runs before
+        # setup-python and leaves the tool cache alone, since that is where Python lives.
+        run: sudo rm -rf /usr/share/dotnet /opt/ghc /usr/local/share/boost
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
       - run: pip install -r tests/requirements.txt
-      - name: Free disk space
-        # The Valheim server is 2.1 GB; hosted runners are tight on disk. A quoted, unset $AGENT_TOOLSDIRECTORY expands to "" and rm ignores it.
-        run: sudo rm -rf /usr/share/dotnet /opt/ghc /usr/local/share/boost "$AGENT_TOOLSDIRECTORY"
       - name: Adapter contract scenarios
         run: pytest -m contract tests/ -v
