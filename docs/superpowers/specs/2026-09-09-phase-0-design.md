@@ -195,7 +195,12 @@ Appended after execution: e2e outcomes, boot timings, and the `-public 0` probe 
 ### Results so far
 
 - 2026-09-10: the 13 `@contract` scenarios passed on a GitHub-hosted runner in 4 min 31 s (workflow `adapter-contract`, run 34422931559 on commit b9c9389). The only warnings were pytest-bdd's own deprecation notices under pytest 9.
-- End-to-end scenarios, boot timings and the `-public 0` probe: pending Task O2 and O3.
+- 2026-09-10, first `apply` (Task O2): `Standard_D4as_v5` was capacity-restricted for the subscription in Brazil South; the pilot runs `Standard_D4as_v6` (NVMe-only) after registering the Compute, Network, Storage, KeyVault and ManagedIdentity resource providers, which a fresh subscription lacks. 30 resources; the VM is at a static IP with 2456/udp open. Cold path: VM created 01:41, game answering A2S at 01:42:35, about 2 minutes.
+- End-to-end scenario 1 (real connection): `player_count` reported 1 while the owner was connected (A2S 1/10) and 0 after leaving. Passed.
+- End-to-end scenario 2 (crossplay): with `SERVER_ARGS=-crossplay` the server joined PlayFab but A2S on 2457 never answered within 90 s of the Steam backend connecting; `player_count` fell back to log parsing and printed 0. Crossplay disables A2S; the pilot stays Steam-only, and crossplay support needs the log fallback or another counter.
+- End-to-end scenario 3 (warm boot): `az vm deallocate` 32 s; `az vm start` returned in 12 s; SSH at +20 s; `is_ready` 0 at +65 s. Target ≤ 180 s. The service started without cloud-init re-running; the world survived; `/data` mounted by label although the NVMe namespace order changed between boots (nvme0n2, then nvme0n1).
+- Probe (`SERVER_PUBLIC=false`): A2S does not answer; `-public 1` is required for the query port. A clean in-VM restart of the game takes about 10 s to stop and 35 s to come back.
+- Task O4: the VM is left deallocated between sessions.
 
 ### Amendments during execution
 
