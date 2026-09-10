@@ -1,0 +1,3 @@
+# Terraform lock files and state files at module level
+.terraform/
+.terraform.lock.hcl
