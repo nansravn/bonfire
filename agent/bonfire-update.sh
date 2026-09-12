@@ -14,6 +14,7 @@ fi
 install -m 0644 agent/systemd/bonfire-update.service agent/systemd/bonfire-agent.service \
   agent/systemd/bonfire-agent.timer /etc/systemd/system/
 mkdir -p /etc/systemd/system/bonfire-agent.timer.d
-printf '[Timer]\nOnUnitActiveSec=\nOnUnitActiveSec=%smin\n' "$INTERVAL" > /etc/systemd/system/bonfire-agent.timer.d/interval.conf
+# An empty OnUnitActiveSec= clears every monotonic timer, so OnBootSec is restated.
+printf '[Timer]\nOnUnitActiveSec=\nOnBootSec=30s\nOnUnitActiveSec=%smin\n' "$INTERVAL" > /etc/systemd/system/bonfire-agent.timer.d/interval.conf
 systemctl daemon-reload
 echo "bonfire-update: checked out $(git rev-parse --short HEAD) ($REF)"
