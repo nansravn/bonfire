@@ -11,13 +11,6 @@ Feature: Extinguish the bonfire
     And a "command/extinguish" event is recorded with the member as actor
 
   @unit
-  Scenario: The stop alias behaves like extinguish
-    Given the bonfire is lit with 0 players online
-    When a member runs "/bonfire stop"
-    Then the reply is message "extinguished_manual" mentioning the member
-    And the state row has vm_state "extinguishing"
-
-  @unit
   Scenario: The agent performs the clean stop and deallocates
     Given the bonfire is extinguishing
     When the agent runs its check

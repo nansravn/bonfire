@@ -20,7 +20,7 @@ Bonfire starts and stops one dedicated game server VM on Azure from Discord slas
 
 Prerequisites: Azure CLI, Terraform ≥ 1.9, Docker, an `az login` session with Owner on the subscription.
 
-Discord setup: create an application and bot in the [Discord developer portal](https://discord.com/developers/applications), invite the bot to the guild with the `applications.commands` scope, create a channel webhook, and put the application ID, public key, bot token and webhook URL in `terraform.tfvars`.
+Discord setup: create an application and bot in the [Discord developer portal](https://discord.com/developers/applications), invite the bot to the guild with the `applications.commands` scope, create a dedicated channel (for example `#bonfire`), create a webhook in that channel, and put the application ID, public key, bot token and webhook URL in `terraform.tfvars`. After registering the commands, restrict `/bonfire` to that channel in Server Settings, Integrations, Bonfire, Channels, so the bot does not post in general channels. To move the bot later, edit the webhook's channel in the same Integrations page; the webhook URL does not change.
 
 ```bash
 infra/bootstrap/create-state-backend.sh                    # once: state storage + infra/envs/pilot/backend.hcl

@@ -17,11 +17,11 @@ Feature: Ignite the bonfire
     And a "command/ignite" event is recorded with the member as actor and ok true
 
   @unit
-  Scenario: The start alias behaves like ignite
+  Scenario: An unregistered subcommand is ignored
     Given the bonfire is out
     When a member runs "/bonfire start"
-    Then the reply is message "igniting"
-    And the state row has vm_state "igniting"
+    Then no VM start is requested
+    And the state row has vm_state "out"
 
   @unit
   Scenario: Ignite while lit only replies with status

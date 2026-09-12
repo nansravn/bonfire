@@ -11,7 +11,7 @@ game_env = {
 game_password   = "change-me-5-chars-min"
 bonfire_git_ref = "main"
 alert_email     = "you@example.com"   # budget alert; leave empty to disable
-# Phase 1: Discord application (developer portal) and the channel webhook.
+# Phase 1: Discord application (developer portal) and the webhook of the bot's dedicated channel.
 discord_application_id = "123456789012345678"
 discord_public_key     = "0123abcd..."          # 64 hex characters
 discord_guild_id       = "123456789012345678"

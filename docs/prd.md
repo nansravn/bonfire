@@ -64,12 +64,12 @@ Timing and other tunables are defined in [contracts/configuration.md](contracts/
 
 ### 7.1 Commands
 
-All commands are subcommands of `/bonfire`, so typing `/bonfire` shows every action in Discord's autocomplete. Discord has no native aliases; `start` and `stop` are registered as separate subcommands routed to the same handlers, with descriptions marking them as aliases.
+All commands are subcommands of `/bonfire`, so typing `/bonfire` shows every action in Discord's autocomplete. There are no aliases: one name per action keeps the autocomplete list short.
 
 | Command | Behavior |
 |---|---|
-| `/bonfire ignite` (alias `start`) | If deallocated, start the VM; reply "Lighting the bonfire, ~2 min" and post "Bonfire lit — server ready" when `is_ready` succeeds. If already up or starting, reply with current status. |
-| `/bonfire extinguish` (alias `stop`) | Deallocate. If players are online, require confirmation (button). |
+| `/bonfire ignite` | If deallocated, start the VM; reply "Lighting the bonfire, ~2 min" and post "Bonfire lit — server ready" when `is_ready` succeeds. If already up or starting, reply with current status. |
+| `/bonfire extinguish` | Deallocate. If players are online, require confirmation (button). |
 | `/bonfire check` | State (lit / out / igniting / extinguishing), players online, uptime this session, minutes until auto-extinguish. |
 | `/bonfire cost` | Hours lit this month and estimated US$. |
 | `/bonfire restart` | Restart the game process only (adapter `stop` + `start`), VM stays up. |

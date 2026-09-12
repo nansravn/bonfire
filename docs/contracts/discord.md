@@ -2,6 +2,8 @@
 
 Discord is the only control surface. This file defines the command tree, the interaction flow, and every message Bonfire sends.
 
+Bonfire lives in one dedicated channel (for example `#bonfire`) so its status traffic stays out of general conversation. The channel webhook `DISCORD_WEBHOOK_URL` belongs to that channel, and the guild restricts the `/bonfire` command to it in Server Settings, Integrations, Bonfire, Channels. Bonfire itself does not check the channel; Discord enforces the restriction.
+
 ## Commands
 
 One top-level command `/bonfire` with subcommands, registered per guild (instant propagation) with `PUT /applications/{application_id}/guilds/{guild_id}/commands`.
@@ -9,9 +11,7 @@ One top-level command `/bonfire` with subcommands, registered per guild (instant
 | Subcommand | Description string | Options | Handler |
 |---|---|---|---|
 | `ignite` | Light the bonfire (start the server) | none | ignite |
-| `start` | Alias of ignite | none | ignite |
 | `extinguish` | Put out the bonfire (stop the server) | none | extinguish |
-| `stop` | Alias of extinguish | none | extinguish |
 | `check` | Is the bonfire lit? Players, uptime, time left | none | check |
 | `cost` | Hours lit this month and estimated cost | none | cost |
 | `restart` | Restart the game only; the bonfire stays lit (Phase 1.5; not registered in Phase 1) | none | restart |
