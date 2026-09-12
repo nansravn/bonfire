@@ -8,6 +8,9 @@ import json
 import os
 import sys
 import urllib.request
+import urllib.error
+
+USER_AGENT = "DiscordBot (https://github.com/nansravn/bonfire, 0.1)"
 
 SUBCOMMANDS = [
     ("ignite", "Light the bonfire (start the server)"),
@@ -34,10 +37,14 @@ def main() -> int:
     request = urllib.request.Request(
         f"https://discord.com/api/v10/applications/{app}/guilds/{guild}/commands",
         data=json.dumps(body).encode(), method="PUT",
-        headers={"Authorization": f"Bot {token}", "Content-Type": "application/json"},
+        headers={"Authorization": f"Bot {token}", "Content-Type": "application/json", "User-Agent": USER_AGENT},
     )
-    with urllib.request.urlopen(request, timeout=20) as response:
-        registered = json.load(response)
+    try:
+        with urllib.request.urlopen(request, timeout=20) as response:
+            registered = json.load(response)
+    except urllib.error.HTTPError as exc:
+        print(f"Discord returned {exc.code}: {exc.read().decode(errors='replace')[:300]}", file=sys.stderr)
+        return 1
     names = [o["name"] for o in registered[0]["options"]]
     print(f"registered /bonfire with subcommands: {', '.join(names)}")
     return 0
