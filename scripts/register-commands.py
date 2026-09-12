@@ -14,9 +14,7 @@ USER_AGENT = "DiscordBot (https://github.com/nansravn/bonfire, 0.1)"
 
 SUBCOMMANDS = [
     ("ignite", "Light the bonfire (start the server)"),
-    ("start", "Alias of ignite"),
     ("extinguish", "Put out the bonfire (stop the server)"),
-    ("stop", "Alias of extinguish"),
     ("check", "Is the bonfire lit? Players, uptime, time left"),
     ("cost", "Hours lit this month and estimated cost"),
 ]

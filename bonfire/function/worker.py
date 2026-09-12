@@ -24,7 +24,6 @@ from bonfire.function.status import status_reply
 
 log = logging.getLogger("bonfire.worker")
 MAX_ATTEMPTS = 3
-ALIASES = {"start": "ignite", "stop": "extinguish"}
 
 
 @dataclass
@@ -52,7 +51,7 @@ def handle_interaction(message: dict, clients: Clients) -> None:
     ctx = Ctx(clients, interaction["token"], _user_id(interaction), parse_iso(message["received_at"]))
     if interaction["type"] == 2:
         name = interaction["data"]["options"][0]["name"]
-        handler = COMMANDS.get(ALIASES.get(name, name))
+        handler = COMMANDS.get(name)
         if handler is None:
             log.warning("unknown subcommand %s", name)
             return
