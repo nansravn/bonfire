@@ -24,7 +24,7 @@ Phase 1 makes Bonfire usable from Discord: any guild member ignites, checks, ext
 | Agent shape | A systemd timer runs a short-lived check every `idle_check_interval` minutes; all state lives in the row. While `igniting`, one run polls `is_ready` every 10 s for up to 50 s. | Wrapping `run_check` in a loop turns it into a daemon later. |
 | Code sharing | One package `bonfire/` at the repository root; the VM installs it into the venv; a script stages a copy for the Function zip. | A 20-line build script; copy the package out if the Function must become independent. |
 | Compute calls | Three REST calls (start, deallocate, instance view) with an `azure-identity` token; no `azure-mgmt-compute`. Table and Cosmos use their data-plane SDKs with managed identity. | Swap the module for the SDK. |
-| Function plan | Classic Linux consumption (Y1). Flex Consumption is the fallback if cold starts show in the e2e run. | Change the plan resource. |
+| Function plan | Flex Consumption (`FC1`): the pilot's Y1 quota in Brazil South is 0. | Change the plan resource. |
 | Bot token | Stored in Key Vault now (the registration script reads it; Phase 1.5 needs it) but referenced by no Function setting in Phase 1. | None. |
 | Manual VM start | The agent adopts a session when it finds the row `out`: it writes `igniting` with fresh session fields, actor `agent`. | A manual start is treated as an ignite; the alternative was the drift rule deallocating it after 20 minutes. |
 
@@ -82,7 +82,7 @@ Boot order: `bonfire-update.service` (oneshot, after network-online and `data.mo
 
 ### 4.2 To Azure
 
-`scripts/build-function.sh` creates `dist/function/` containing `function/function_app.py`, `function/host.json`, `function/requirements.txt` and a copy of `bonfire/`. Terraform's `archive_file` zips that directory and `azurerm_linux_function_app` deploys it through `zip_deploy_file` with `SCM_DO_BUILD_DURING_DEPLOYMENT=true` and `ENABLE_ORYX_BUILD=true`, so dependencies are built remotely. The build script runs before `terraform plan`; CI runs it to prove staging works. `requirements.txt` pins `azure-functions`, `azure-identity`, `azure-data-tables`, `azure-cosmos`, `cryptography`, `requests`.
+`scripts/build-function.sh` creates `dist/function/` containing `function/function_app.py`, `function/host.json`, `function/requirements.txt`, a copy of `bonfire/`, and the third-party dependencies vendored into `.python_packages/lib/site-packages` (manylinux2014, CPython 3.12, wheels only) — Flex Consumption's `zip_deploy_file` publishes the zip as-is, with no remote build, so the packages must already be in it, in the layout the Python worker adds to `sys.path`. Terraform's `archive_file` zips that directory and `azurerm_function_app_flex_consumption` deploys it through `zip_deploy_file`. The build script runs before `terraform plan`; CI runs it to prove staging works. `requirements.txt` pins `azure-functions`, `azure-identity`, `azure-data-tables`, `azure-cosmos`, `cryptography`, `requests`.
 
 `scripts/register-commands.py` reads `DISCORD_APPLICATION_ID`, `DISCORD_GUILD_ID` and the bot token (from `az keyvault secret show` or the environment) and PUTs the guild command tree with six subcommands: `ignite`, `start`, `extinguish`, `stop`, `check`, `cost`, with the description strings from [discord.md](../../contracts/discord.md). `restart` is registered in Phase 1.5.
 

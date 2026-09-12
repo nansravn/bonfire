@@ -59,6 +59,8 @@ resource "azurerm_storage_container" "deployments" {
   container_access_type = "private"
 }
 
+# The zip from scripts/build-function.sh is self-contained (dependencies vendored into
+# .python_packages/lib/site-packages): zip_deploy_file publishes it as-is, with no remote build.
 resource "azurerm_function_app_flex_consumption" "this" {
   name                = "func-bonfire-${var.suffix}"
   resource_group_name = var.resource_group_name
@@ -93,6 +95,10 @@ resource "azurerm_function_app_flex_consumption" "this" {
   # ("explicit user settings take priority over enumerated, e.g. specifying KeyVault for
   # AzureWebJobsStorage" - internal/services/appservice/helpers/function_app_schema.go),
   # so set it here for the interactions queue trigger/output and the state table.
+  #
+  # azurerm 4.81 also injects a malformed AzureWebJobsStorage (empty key) in identity mode;
+  # before switching host_storage_uses_identity to true, verify the plan and override that
+  # key, see spec section 12.
   app_settings = merge(var.app_settings, var.host_storage_uses_identity ? {
     AzureWebJobsStorage__accountName = azurerm_storage_account.controller.name
     } : {
