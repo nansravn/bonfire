@@ -14,7 +14,7 @@ What the day's apply and end-to-end runs established about the candidates:
 | Plan | Idle cost | Cold start | Fit | Blocker |
 |---|---|---|---|---|
 | Consumption `Y1` | zero (free grant) | seconds | the original assumption | quota 0 here; plan retiring |
-| **Flex Consumption `FC1`** | zero (same free grant: 250k executions and 100k GB-s a month) | seconds, ~5 s observed end to end on a cold worker | available in Brazil South; Microsoft's forward path | `azurerm` 4.81 gaps (below) |
+| **Flex Consumption `FC1`** | zero at pilot volume (its own monthly free grant, listed by Microsoft as 250k executions and 100k GB-s at the time of writing) | seconds; a command completed about 5 s end to end with a cold worker | available in Brazil South; Microsoft's forward path | `azurerm` 4.81 gaps (below) |
 | App Service `B1` always on | ~US$13 a month | none | removes cold starts entirely | exceeds the controller budget four times over |
 | Premium `EP1` | ~US$150 a month | none | | far outside budget |
 | Container Apps | zero at scale-to-zero | seconds | | needs the queue and timer triggers rebuilt outside the Functions model; more moving parts for no gain |
@@ -54,4 +54,4 @@ Rejected. Scale-to-zero at similar cost, but the queue worker and the timer woul
 - Two connection strings with keys live in app settings, an exception to the architecture's security note that secrets reach code only through Key Vault references. Switching to identity mode needs the `AzureWebJobsStorage` override noted in the controller module and a plan review.
 - Every plan shows the perpetual `AzureWebJobsStorage` diff until a `lifecycle` ignore is added; applying it is harmless (a restart).
 - The 15-minute watchdog keeps a worker warm most of the time; the first command after a quiet period still takes about 5 seconds to complete, within the interaction token's 15-minute validity and behind an immediate acknowledgement.
-- Cost stays within the free grant at pilot volume (about 3,000 timer executions and a few hundred commands a month); Application Insights ingestion is the only meaningful controller cost.
+- Cost stays within the free grant at pilot volume (about 3,000 timer executions and a few hundred commands a month, a small fraction of any published grant); Application Insights ingestion is the only meaningful controller cost.

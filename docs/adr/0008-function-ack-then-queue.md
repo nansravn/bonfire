@@ -1,6 +1,6 @@
 # 0008. The Function acknowledges over HTTP and does its work from a queue
 
-**Status:** Accepted
+**Status:** Accepted, amended 2026-09-12 (evidence added to Consequences)
 **Date:** 2026-09-10
 
 ## Context
