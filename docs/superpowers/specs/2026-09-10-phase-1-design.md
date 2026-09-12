@@ -257,4 +257,26 @@ One step module per feature file; step phrases are shared through `tests/steps/c
 
 ## 12. Phase 1 results
 
-Appended after execution: e2e outcomes and timings, and follow-ups carried into Phase 1.5.
+Applied 2026-09-12 (UTC). Brazil South has zero Y1 (classic Consumption) quota, so the Function runs on Flex Consumption (FC1) with `host_storage_uses_identity = false` (connection-string mode); this works. The azurerm provider's zip publish to a Flex app fails ("waiting for deployment service to be ready: 404"); the package was published instead with `az functionapp deployment source config-zip --build-remote false` (the zip is self-contained: dependencies vendored by `scripts/build-function.sh`). Three applies were needed: a Y1 quota failure, a `fileset` inconsistency (fixed by excluding `__pycache__` from the zip hash), then the publish failure (the app was left tainted; `terraform untaint` plus a further apply created the remaining role assignments). The VM clones `bonfire_git_ref = "phase-1"` until PR #5 merges; the first replacement cloned `main`, which had no Phase 1 code and no agent units.
+
+### e2e runs (all times UTC)
+
+1. **Ignite from Discord.** `/bonfire ignite` accepted 13:20:48 (VM start call 13:20:43, VM booted 13:20:56). The agent did not tick: the boot ran the old update script's tail after the checkout replaced the file, leaving a timer drop-in without `OnBootSec` — two bugs, both fixed (commits `5d4766a`, `e7dab38`). Manual tick 13:26:52 produced `lit` and `ready`. Command-handling latency (received to reply edited) about 5 s on a cold worker.
+2. **Check in every state.** `out` at 13:17:03, 13:18:24, 13:31:14; `lit` with 0 players; `lit` with 1 player at 13:33:34; `extinguishing` at 13:37:45, which reconciled the row to `out`. All replies correct. `/bonfire cost` at 13:20:13 and 13:31:22 reported 0.75 h.
+3. **Extinguish with a player online.** `confirm_extinguish` with buttons at 13:34:00; the confirm click recorded as `command/extinguish` with `player_count` 1; `vm/backup` uploaded 16 files; adapter stopped; VM deallocated by 13:35:36; hours accounted 0.9719 after reconciliation.
+4. **Burn-out (natural, default tunables).** Session adopted 05:40:19 (`command/ignite`, actor agent, detail "adopted manual start"); `vm/ready` 05:40:19; `watchdog/warning` at 15 (06:10:32) and 5 (06:21:00); `watchdog/idle_shutdown` at 06:25:20 (= idle_since + 45 min, detail "idle 45 min; warnings 15,5 posted"); `vm/backup` uploaded 44 files under `<session_id>/<timestamp>/`; VM deallocated; watchdog tick at 06:30:01 wrote `out` and 0.7505 hours. The 5-minute tunable variant was not run: the default run exercised the same path.
+5. **Safety net.** VM started 13:39:16 (`az vm start`), adopted and `lit` 13:40:22; `bonfire-agent.timer` stopped 13:41:08; watchdog tick at 14:00 took no action (heartbeat 19m38s stale, below the 20-minute threshold); tick at 14:15 wrote `extinguishing` and deallocated the VM (`watchdog/heartbeat_missing`), VM deallocated by 14:16:05.
+
+Warm boot to `ready`: about 65 s (05:40 and 13:26 sessions). The Discord endpoint was accepted by the portal on the first save. Commands were registered by `scripts/register-commands.py` after adding a bot `User-Agent` (Discord returns 403 to urllib's default).
+
+### Follow-ups carried into Phase 1.5
+
+- Function deployment: the azurerm zip publish does not work on Flex; deploy with `az functionapp deployment source config-zip` (or move to a deployment pipeline). `host_storage_uses_identity = true` needs the `AzureWebJobsStorage` override described in `infra/modules/controller/main.tf`.
+- Set `bonfire_git_ref` back to `main` after the merge (replaces the VM once).
+- `restart` and the keep-it-lit button (PRD 1.5); CI apply with OIDC; agent logs to Log Analytics (Phase 3).
+- Agent logging: azure-core HTTP logging at INFO floods journald; set the azure loggers to WARNING.
+- `vm/backup` embeds the blob exception text in its detail on failure; redact it like the Discord errors.
+- Reconciliation marks a slow boot `lit` from a fresh heartbeat before the agent posts `ready` (spec 6.4); consider dropping that branch.
+- Unexplained: 12 blobs under `20260911T214143Z/` in `backups`, uploaded 2026-09-11T21:41Z, before the agent existed (possibly a sibling session's test).
+- Cosmos Data Reader for the owner's user was granted by CLI, outside Terraform; move it into the `iam` module.
+- Deferred review minors: listed in the SDD ledger (`.superpowers/sdd/2026-09-10-phase-1/progress.md`, "minor (deferred)").

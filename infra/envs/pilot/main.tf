@@ -114,8 +114,6 @@ module "vm" {
   git_ref              = var.bonfire_git_ref
   repo_url             = var.repo_url
 
-  shutdown_notification_email = var.alert_email
-
   agent_env = merge(local.bonfire_settings, {
     BONFIRE_BACKUP_ACCOUNT_URL = module.backup.blob_endpoint
   })

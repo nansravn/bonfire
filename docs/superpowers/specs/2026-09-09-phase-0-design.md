@@ -206,7 +206,7 @@ Appended after execution: e2e outcomes, boot timings, and the `-public 0` probe 
 
 Inputs and deferred findings that live nowhere else; the Phase 1 brainstorm should read this list first.
 
-- **Phase 1, final task.** **Remove the nightly auto-deallocate** (`azurerm_dev_test_global_vm_shutdown_schedule` in the vm module) once the agent's idle timer is shown to extinguish an empty server after `idle_timeout_minutes`.
+- **Done in Phase 1 (Task 17).** **Remove the nightly auto-deallocate** (`azurerm_dev_test_global_vm_shutdown_schedule` in the vm module) once the agent's idle timer is shown to extinguish an empty server after `idle_timeout_minutes`.
 - **Resolved: Steam-only in v1 (Phase 1 spec, section 2).** **A2S is unavailable with crossplay and with `SERVER_PUBLIC=false`.** Decide whether crossplay is supported; if so, `player_count` must rely on the log fallback (joins minus leaves after `Game server connected`) or another counter, and the "unknown never extinguishes" rule protects players meanwhile.
 - **Resolved: adapter-interface rule 6.** **`health` has no "stopped" state.** The adapter prints `crashed` whenever no container exists, including after a clean `stop`; the agent must only consult `health` while the game is expected to be running, or the contract gains a fourth value.
 - **Recorded; `ready_timeout_minutes` unchanged.** **Warm boot is about 65 s** from `az vm start` to A2S answering; the ignite message's "~2 min" holds. `ready_timeout_minutes` (10) has ample margin.

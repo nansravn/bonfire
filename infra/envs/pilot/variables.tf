@@ -54,7 +54,7 @@ variable "data_disk_gb" {
 variable "alert_email" {
   type        = string
   default     = ""
-  description = "Receives the budget alert and the nightly-shutdown warning; empty disables both notifications."
+  description = "Receives the budget alert; empty disables it."
 }
 
 variable "monthly_budget_usd" {
