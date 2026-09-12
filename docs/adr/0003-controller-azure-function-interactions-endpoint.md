@@ -31,3 +31,4 @@ Rejected. Signature validation and the deferred-response flow need code; a Funct
 - Cold starts on the consumption plan are usually under 3 seconds but not guaranteed; the deferred acknowledgement is sent before any I/O to protect the deadline.
 - The Function has no gateway connection, so it cannot see voice-channel events. A voice trigger (PRD phase 4) would need a separate gateway process.
 - The same pattern is used by CoderCoco/game-server-deploy on AWS Lambda (PRD reference R8).
+- The pilot runs the Flex Consumption plan (`FC1`), not classic Consumption (`Y1`): the subscription's Y1 quota in Brazil South is 0, and Flex is the fallback the spec names (design section 5.1).

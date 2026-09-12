@@ -92,8 +92,8 @@ Boot order: `bonfire-update.service` (oneshot, after network-online and `data.mo
 
 - Storage account `stbonfirectl<suffix>` (Standard_LRS, TLS 1.2), table `state`, queue `interactions`. The host connection `AzureWebJobsStorage` is identity-based (`storage_uses_managed_identity`); shared-key access stays enabled because zip deployment uses it. If identity-based host storage proves unsupported for zip deploy on Y1 Linux, the host falls back to the account key and the application code keeps using identity; the plan records which.
 - Log Analytics workspace `log-bonfire` (PerGB2018, 30-day retention) and Application Insights `appi-bonfire` (workspace-based, sampling 20%).
-- Service plan `asp-bonfire` (Linux, `Y1`).
-- Function app `func-bonfire-<suffix>`: Python 3.12, system-assigned identity, HTTPS only, `AzureWebJobsStorage__accountName` pointing at the account (identity-based host storage), `zip_deploy_file` from the archive, remote-build settings, `WEBSITE_TIME_ZONE` unset (all timestamps UTC).
+- Service plan `asp-bonfire` (Linux, `FC1`). The pilot runs Flex Consumption because the subscription's Y1 (classic Consumption) quota in Brazil South is 0.
+- Function app `func-bonfire-<suffix>`: Python 3.12, system-assigned identity, HTTPS only, `AzureWebJobsStorage__accountName` pointing at the account (identity-based host storage), `zip_deploy_file` from the archive, `WEBSITE_TIME_ZONE` unset (all timestamps UTC).
 - App settings: every `BONFIRE_*` tunable and derived value from configuration.md, `DISCORD_APPLICATION_ID`, `DISCORD_PUBLIC_KEY`, `DISCORD_WEBHOOK_URL` as a Key Vault reference.
 - Outputs: `function_url` (`https://<host>/api/interactions`), `state_table_endpoint`, `storage_account_id`, `principal_id`.
 
