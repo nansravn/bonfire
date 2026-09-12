@@ -1,6 +1,6 @@
 # Configuration
 
-Every tunable is a Terraform variable. Terraform writes it to the Function's app settings and to the agent's environment file `/etc/bonfire/agent.env` under the same uppercase name. Lists become comma-separated strings.
+Every tunable is a Terraform variable. Terraform writes it to the Function's app settings and to the agent's environment file `/etc/bonfire/bonfire.env` under the same uppercase name. Lists become comma-separated strings.
 
 ## Variables
 
@@ -12,8 +12,9 @@ Every tunable is a Terraform variable. Terraform writes it to the Function's app
 | `idle_check_interval` | `BONFIRE_IDLE_CHECK_INTERVAL` | number (minutes) | 1 | ≥ 1 |
 | `max_session_hours` | `BONFIRE_MAX_SESSION_HOURS` | number | 12 | ≥ 2, so the ceiling warning at `max_session_hours − 1` is after ignite |
 | `heartbeat_stale_minutes` | `BONFIRE_HEARTBEAT_STALE_MINUTES` | number | 20 | ≥ 3 × `idle_check_interval`; > 15 (the watchdog interval) |
-| `vm_hourly_usd` | `BONFIRE_VM_HOURLY_USD` | number | 0.28 | > 0 |
+| `vm_hourly_usd` | `BONFIRE_VM_HOURLY_USD` | number | 0.30 (D4as v6 rate) | > 0 |
 | `fixed_monthly_usd` | `BONFIRE_FIXED_MONTHLY_USD` | number | 18 | ≥ 0 |
+| `discord_guild_id` | `DISCORD_GUILD_ID` | string | none | used by `scripts/register-commands.py` only |
 
 The first five are the timings PRD section 6.7 names plus the game selector. `heartbeat_stale_minutes` is the value PRD 6.4 states in prose. The two cost rates serve `/bonfire cost` (PRD section 10).
 
@@ -48,14 +49,16 @@ Terraform computes these from resources it creates; they are not variables.
 | `BONFIRE_EVENTS_ENDPOINT` | Cosmos account endpoint | agent, Function |
 | `DISCORD_APPLICATION_ID` | Discord application ID (variable, not secret) | Function |
 | `DISCORD_PUBLIC_KEY` | Discord interaction public key (variable, not secret) | Function |
+| `BONFIRE_GIT_REF` | the `bonfire_git_ref` variable | agent (`bonfire-update`) |
+| `BONFIRE_BACKUP_ACCOUNT_URL` | Blob endpoint of the backup storage account | agent |
 
 ## Secrets
 
-Stored in Key Vault. The Function reads them as Key Vault references in app settings; the agent fetches them at boot with its managed identity and writes `/etc/bonfire/agent.env` and `/etc/bonfire/<game>.env` with mode 0600.
+Stored in Key Vault. The Function reads them as Key Vault references in app settings; the agent fetches them at boot with its managed identity and writes `/etc/bonfire/bonfire.env` and `/etc/bonfire/<game>.env` with mode 0600.
 
 | Key Vault secret | Env name | Read by |
 |---|---|---|
-| `discord-bot-token` | `DISCORD_BOT_TOKEN` | Function |
+| `discord-bot-token` | `DISCORD_BOT_TOKEN` | Function. Stored in Phase 1 for `scripts/register-commands.py`; no Function setting references it until Phase 1.5. |
 | `discord-webhook-url` | `DISCORD_WEBHOOK_URL` | agent |
 | `<game>-server-password` | adapter-defined | adapter, via `/etc/bonfire/<game>.env` |
 

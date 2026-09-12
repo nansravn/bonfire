@@ -36,3 +36,18 @@ resource "azurerm_key_vault_secret" "game_password" {
   key_vault_id = azurerm_key_vault.this.id
   depends_on   = [time_sleep.rbac_propagation]
 }
+
+resource "azurerm_key_vault_secret" "discord_webhook_url" {
+  name         = "discord-webhook-url"
+  value        = var.discord_webhook_url
+  key_vault_id = azurerm_key_vault.this.id
+  depends_on   = [time_sleep.rbac_propagation]
+}
+
+# Stored for scripts/register-commands.py and Phase 1.5; no Function setting references it yet.
+resource "azurerm_key_vault_secret" "discord_bot_token" {
+  name         = "discord-bot-token"
+  value        = var.discord_bot_token
+  key_vault_id = azurerm_key_vault.this.id
+  depends_on   = [time_sleep.rbac_propagation]
+}

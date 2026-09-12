@@ -1,0 +1,1 @@
+{ "ports": [{ "port": 2456, "proto": "udp" }], "stop_grace_seconds": 1, "ready_timeout_minutes": 5 }

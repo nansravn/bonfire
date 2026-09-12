@@ -1,0 +1,10 @@
+[Unit]
+Description=Run the Bonfire agent check every idle_check_interval minutes
+
+[Timer]
+OnBootSec=30s
+OnUnitActiveSec=1min
+AccuracySec=5s
+
+[Install]
+WantedBy=timers.target

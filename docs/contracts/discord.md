@@ -14,7 +14,9 @@ One top-level command `/bonfire` with subcommands, registered per guild (instant
 | `stop` | Alias of extinguish | none | extinguish |
 | `check` | Is the bonfire lit? Players, uptime, time left | none | check |
 | `cost` | Hours lit this month and estimated cost | none | cost |
-| `restart` | Restart the game only; the bonfire stays lit | none | restart |
+| `restart` | Restart the game only; the bonfire stays lit (Phase 1.5; not registered in Phase 1) | none | restart |
+
+Registration is `scripts/register-commands.py`, run by the owner with the bot token; it registers the Phase 1 subcommands.
 
 ## Interaction flow
 
@@ -27,7 +29,7 @@ One top-level command `/bonfire` with subcommands, registered per guild (instant
 
 ### Extinguish confirmation
 
-When `last_player_count > 0`, the extinguish handler edits its reply to `confirm_extinguish` with two buttons: `Extinguish` (style danger, `custom_id = extinguish:confirm:<user_id>:<unix_ts>`) and `Cancel` (style secondary, `custom_id = extinguish:cancel:<user_id>:<unix_ts>`). Rules:
+When `last_player_count > 0`, the extinguish handler edits its reply to `confirm_extinguish` with two buttons: `Extinguish` (style danger, `custom_id = extinguish:confirm:<user_id>:<unix_ts>`) and `Cancel` (style secondary, `custom_id = extinguish:cancel:<user_id>:<unix_ts>`). When the count is `-1` (unknown), nobody can be shown to be online, so the extinguish proceeds without confirmation and the event's `player_count` is null. Rules:
 
 - Only the user whose ID is in `custom_id` may click. Anyone else gets an ephemeral `confirm_not_yours`.
 - If `now - unix_ts > 120` seconds, either click edits the message to `confirm_expired`.

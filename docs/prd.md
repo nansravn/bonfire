@@ -132,7 +132,7 @@ The core knows no game. Each game is an adapter in `games/<name>/` implementing 
 - `player_count`: Steam A2S_INFO query on `127.0.0.1:2457`. Fallback: log parsing (`Got connection SteamID` / `Closing socket`).
 - `is_ready`: A2S responds.
 - Ports: 2456/udp public; 2457 (A2S) loopback only.
-- Known risk: with `-crossplay` (PlayFab) A2S may behave differently; test in phase 0.
+- Crossplay (`-crossplay`) disables A2S; unsupported in v1. The pilot is Steam-only (Phase 0 result).
 - Conformance: [tests/features/adapter-valheim.feature](../tests/features/adapter-valheim.feature).
 
 ## 8. Non-functional requirements
@@ -201,10 +201,10 @@ A broader survey and code-level notes on the closest projects are in [prior-art.
 ## 14. Roadmap
 
 - **Phase 0 (1 week):** Terraform for VM + network; Valheim adapter in compose; A2S working; Blob backup. Test A2S with and without crossplay.
-- **Phase 1 (2 weeks):** Local agent (idle timer + warnings + heartbeat + webhook). Function with `ignite`, `extinguish`, `check`. Table + Cosmos. Concurrency lock.
+- **Phase 1 (2 weeks):** Local agent (readiness, idle timer + warnings, heartbeat, backup upload, webhook, self-deallocate). Function with `ignite`, `extinguish`, `check`, `cost` and the safety-net timer. Table + Cosmos. Concurrency lock. Nightly auto-deallocate removed.
 - **Phase 1.5:** Warnings sent by the bot with the "Keep it lit" button. `restart`.
 - **Phase 2 (4-week pilot):** Real use. Collect section 11 metrics from Cosmos.
-- **Phase 3:** `cost`; external watchdog; alerts. Second adapter (Minecraft, Palworld or Enshrouded) to validate the abstraction.
+- **Phase 3:** `cost`; alerts. Second adapter (Minecraft, Palworld or Enshrouded) to validate the abstraction.
 - **Phase 4 (exploratory):** voice-channel trigger; ACI benchmark as an alternative runner.
 
 ## 15. Open questions

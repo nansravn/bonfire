@@ -63,9 +63,11 @@ Database `bonfire`, container `events`, partition key `/month`, default TTL 7776
 | `type` | Allowed `action` values |
 |---|---|
 | `command` | `ignite`, `extinguish`, `check`, `cost`, `restart`, `keep_lit` |
-| `vm` | `ready`, `ignite_failed`, `deallocated` |
+| `vm` | `ready`, `ignite_failed`, `deallocated`, `backup` |
 | `watchdog` | `warning`, `idle_cancelled`, `idle_shutdown`, `unknown_alert`, `ceiling_warning`, `ceiling`, `heartbeat_missing`, `boot_failed` |
 | `game` | `crash`, `crash_gave_up` |
+
+`command/ignite` with actor `agent` and detail `adopted manual start` records a VM started outside Bonfire that the agent adopted. `vm/backup` records the backup upload before an extinguish, with the file count or the failure in `detail`.
 
 ### Examples
 

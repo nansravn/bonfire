@@ -35,7 +35,7 @@ Feature: Check the bonfire
   Scenario: Check while the player count is unknown
     Given the bonfire is lit and the last player count is unknown
     When a member runs "/bonfire check"
-    Then the reply is message "status_lit_unknown"
+    Then the reply is message "status_lit_unknown" with h 1, mm 00
 
   @unit
   Scenario: Check while the game is down
