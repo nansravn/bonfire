@@ -86,6 +86,8 @@ Boot order: `bonfire-update.service` (oneshot, after network-online and `data.mo
 
 `scripts/register-commands.py` reads `DISCORD_APPLICATION_ID`, `DISCORD_GUILD_ID` and the bot token (from `az keyvault secret show` or the environment) and PUTs the guild command tree with six subcommands: `ignite`, `start`, `extinguish`, `stop`, `check`, `cost`, with the description strings from [discord.md](../../contracts/discord.md). `restart` is registered in Phase 1.5.
 
+> Amendment 2026-09-12: the `start` and `stop` aliases were removed (PR #7); the tree is `ignite`, `extinguish`, `check`, `cost`, and the worker dispatches on the subcommand name alone. The bot also moved to a dedicated channel; see [discord.md](../../contracts/discord.md).
+
 ## 5. Terraform
 
 ### 5.1 Module `controller`
