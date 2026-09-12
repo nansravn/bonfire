@@ -1,6 +1,6 @@
 # 0006. Infrastructure as code: Terraform
 
-**Status:** Accepted
+**Status:** Accepted, amended 2026-09-12 (see Amendment)
 **Date:** 2026-09-08
 
 ## Context
@@ -49,3 +49,13 @@ Rejected. Not reproducible from scratch; the PRD's "VM is disposable" goal depen
 - Terraform needs a state backend. The pilot uses an `azurerm` backend in a small bootstrap storage account created once outside Terraform; the Phase 0 spec details the bootstrap.
 - Configuration values flow from Terraform variables to Function app settings and the agent's environment file; the mapping is in [contracts/configuration.md](../contracts/configuration.md).
 - Destroying and re-creating the VM keeps the data disk and its saves.
+
+## Amendment (2026-09-12): where "everything is `terraform apply`" bends
+
+The decision stands; the Phase 1 apply showed its edges.
+
+- **The Function package is published outside Terraform.** `azurerm` 4.81 cannot publish a zip to a Flex Consumption app; the CLI can ([ADR 0009](0009-function-hosting-flex-consumption.md)). Until a deploy script or the CI apply path exists, a code change to `bonfire/` or `function/` is Terraform for the settings plus one `az functionapp deployment source config-zip` call. Terraform still detects the change, because the zip path carries a content hash of `dist/function`; that hash requires `scripts/build-function.sh` to have run before every plan and ignores `__pycache__` so a stray import between plan and apply cannot desynchronise it.
+- **The VM's contents come from git, not only from Terraform.** Phase 1 chose to pull `bonfire_git_ref` on every boot, so a merged change reaches the VM at the next ignite without an apply. The corollary is that the ref must point at the branch under test: the first Phase 1 replacement cloned `main`, which had no agent, and the units did not exist. Cloud-init and the boot units are the bootstrap; the update script re-executes itself after the checkout so that the freshly pulled copy runs the rest of the boot.
+- **Every cloud-init change replaces the VM.** Two replacements happened on 2026-09-12 and a third follows the merge (the ref back to `main`); the data disk, its world and the public IP survived both, as the design intended. Replacement is the normal path for configuration changes, not an incident, but it needs an empty server.
+- **Two things were done from the CLI and must be brought back:** the owner's Cosmos Data Reader role ([ADR 0005](0005-storage-table-cosmos-keyvault-blob.md) amendment) and `terraform untaint` of the Function app after its failed publish. Neither is drift Terraform would repair; the first is a one-line `iam` addition planned for Phase 1.5.
+- **Plan noise to expect:** the `AzureWebJobsStorage` app setting is proposed on every plan (a provider read gap); applying it is a harmless restart.

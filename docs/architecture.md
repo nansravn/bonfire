@@ -6,7 +6,7 @@ Bonfire starts and stops one game VM on demand. This document is the system-leve
 
 Four parts run Bonfire. Each owns one concern.
 
-- **Function** (Azure Functions, consumption plan). Owns: the Discord Interactions Endpoint (slash commands and button clicks), the safety-net timer, and every transition it is allowed to make in the state machine below. Depends on: the state table, the events container, the Azure Compute API for the VM, Key Vault for the bot token. Never talks to the adapter. See [ADR 0003](adr/0003-controller-azure-function-interactions-endpoint.md).
+- **Function** (Azure Functions, Flex Consumption plan; [ADR 0009](adr/0009-function-hosting-flex-consumption.md)). Owns: the Discord Interactions Endpoint (slash commands and button clicks), the safety-net timer, and every transition it is allowed to make in the state machine below. Depends on: the state table, the events container, the Azure Compute API for the VM, Key Vault for the webhook URL (the bot token arrives with the keep-it-lit button in Phase 1.5). Never talks to the adapter. See [ADR 0003](adr/0003-controller-azure-function-interactions-endpoint.md).
 - **Agent** (a service on the VM, run by a systemd timer every `idle_check_interval` minutes; a boot-time unit pulls `bonfire_git_ref` and reinstalls it first). Owns: readiness detection, the idle timer and warnings, heartbeat, crash restarts, executing `pending_command`, clean stop and self-deallocation. Depends on: the adapter CLI, the state table, the events container, the Discord webhook URL, the VM's managed identity. See [ADR 0004](adr/0004-watchdog-local-agent-primary-function-safety-net.md).
 - **Adapter** (a directory under `games/<name>/`: compose file, `adapter.sh`, `adapter.json`). Owns: everything game-specific. Depends on: Docker and the data disk. Contract in [contracts/adapter-interface.md](contracts/adapter-interface.md).
 - **Terraform** (`infra/`). Owns: provisioning only. Never starts or stops the VM after apply. See [ADR 0006](adr/0006-infrastructure-as-code-terraform.md).
@@ -165,7 +165,7 @@ Docker owns restarts: every adapter's compose file sets `restart: on-failure:3`,
 ## Security notes
 
 - Discord requests are accepted only with a valid Ed25519 signature over timestamp and body (details in [contracts/discord.md](contracts/discord.md)).
-- The Function's identity holds Virtual Machine Contributor scoped to the one VM.
+- The Function's identity holds a custom role scoped to the one VM (`Bonfire VM Control`: read, instance view, start, deallocate), not Virtual Machine Contributor.
 - The VM's managed identity may only deallocate itself.
-- The bot token, webhook URL and game password live in Key Vault and reach code through references, never plain app settings.
+- The bot token, webhook URL and game password live in Key Vault and reach code through references, never plain app settings. Two exceptions exist in Phase 1, both written by Terraform: the Functions host's own storage connection (`AzureWebJobsStorage`) and the deployment container's (`DEPLOYMENT_STORAGE_CONNECTION_STRING`) are account-key connection strings, because the provider cannot configure identity-based host storage on Flex Consumption ([ADR 0009](adr/0009-function-hosting-flex-consumption.md)).
 - The NSG opens only the ports in the adapter's `adapter.json`, and the query port is never opened in v1.
