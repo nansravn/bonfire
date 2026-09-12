@@ -38,7 +38,7 @@ locals {
 locals {
   function_dist = "${path.root}/../../../dist/function"
   # The zip path carries a content hash: azurerm redeploys only when zip_deploy_file changes.
-  function_dist_hash = sha1(join("", [for f in sort(fileset(local.function_dist, "**")) : filesha1("${local.function_dist}/${f}")]))
+  function_dist_hash = sha1(join("", [for f in sort(fileset(local.function_dist, "**")) : filesha1("${local.function_dist}/${f}") if !strcontains(f, "__pycache__")]))
 }
 
 # scripts/build-function.sh must have run before plan; CI and the README say so.
