@@ -1,6 +1,6 @@
 # 0003. Controller: Azure Function with the Discord Interactions Endpoint
 
-**Status:** Accepted
+**Status:** Accepted, amended 2026-09-12 (hosting plan moved to ADR 0009)
 **Date:** 2026-09-08
 
 ## Context
@@ -28,7 +28,7 @@ Rejected. Signature validation and the deferred-response flow need code; a Funct
 ## Consequences
 
 - Discord requires an acknowledgement within 3 seconds. Every handler responds with a deferred acknowledgement first, then edits the reply. The exact flow is in [contracts/discord.md](../contracts/discord.md).
-- Cold starts on the consumption plan are usually under 3 seconds but not guaranteed; the deferred acknowledgement is sent before any I/O to protect the deadline.
+- Cold starts are not under the deadline's control: the deferred acknowledgement is sent before any I/O, and the work runs from a queue ([ADR 0008](0008-function-ack-then-queue.md)). Measured on 2026-09-12: the acknowledgement always arrived (the Discord portal accepted the endpoint on the first save, and no command was reported as unanswered), and a command completed about 5 seconds after Discord sent it when the worker was cold.
 - The Function has no gateway connection, so it cannot see voice-channel events. A voice trigger (PRD phase 4) would need a separate gateway process.
 - The same pattern is used by CoderCoco/game-server-deploy on AWS Lambda (PRD reference R8).
-- The pilot runs the Flex Consumption plan (`FC1`), not classic Consumption (`Y1`): the subscription's Y1 quota in Brazil South is 0, and Flex is the fallback the spec names (design section 5.1).
+- The hosting plan is a separate decision: the pilot runs Flex Consumption because the subscription has no `Y1` quota, with the provider gaps and the deployment path recorded in [ADR 0009](0009-function-hosting-flex-consumption.md).

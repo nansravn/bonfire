@@ -38,3 +38,4 @@ Rejected for v1. Zero idle cost is attractive, but every start pulls the image a
 - Idle cost is not zero: disks and the static IP cost about US$14 a month while the VM is deallocated.
 - The VM's OS is Bonfire's responsibility to patch; cloud-init rebuilds it from scratch, so the VM is treated as disposable.
 - Because the adapter is a container, moving to ACI or AKS later changes the runner, not the adapter.
+- Disposability was exercised on 2026-09-12: the VM was replaced three times in one day by cloud-init changes, about five minutes each, and the data disk, the world and the static IP survived each replacement.
