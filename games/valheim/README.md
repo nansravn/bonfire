@@ -9,3 +9,4 @@ Implements [the adapter interface](../../docs/contracts/adapter-interface.md) fo
 - **Data layout:** `$BONFIRE_DATA_DIR/config` is the container's `/config`. Worlds live under `config/worlds_local/<WORLD_NAME>/` as a directory (`_main.N.db2`, `_main.N.fwl2`, `_main.N.chunks` and `*.chunk` files); older server builds wrote a flat `<WORLD_NAME>.db`/`.fwl` pair instead, which the adapter still handles. `$BONFIRE_DATA_DIR/server` is `/opt/valheim` so the game download survives `compose down`.
 - **Environment file** (`$BONFIRE_GAME_ENV_FILE`, default `/etc/bonfire/valheim.env`): `SERVER_NAME`, `WORLD_NAME`, `SERVER_PASS` (5+ characters), `SERVER_PUBLIC=true`, optional `SERVER_ARGS=-crossplay`.
 - **Restore a backup:** stop the adapter, copy the world directory (or the legacy `.db`/`.fwl` pair) back into `config/worlds_local/`, start.
+- **Admins:** `config/adminlist.txt` on the data disk, edited over SSH; see [admins.md](admins.md). Never set `ADMINLIST_IDS`.
