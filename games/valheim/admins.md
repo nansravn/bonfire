@@ -27,6 +27,7 @@ In-game admin allows `kick`, `ban`, `unban`, `save` and `devcommands` from the F
 Prerequisites: the server is `lit` (`/bonfire check`), the operator has SSH access as `bonfire`, the member is connected to the game.
 
 1. Connect: `ssh bonfire@<public_address>` (`terraform output public_address` in `infra/envs/pilot`).
+   SSH is open only to `admin_cidr`. If the operator's IP has changed, either update `admin_cidr` and apply, or run the same commands as root through the Azure control plane: `az vm run-command invoke -g <resource_group> -n <vm_name> --command-id RunShellScript --scripts '<commands>'` (drop the `sudo`).
 2. Find the member's ID as the server sees it:
 
    ```bash
@@ -34,17 +35,17 @@ Prerequisites: the server is `lit` (`/bonfire check`), the operator has SSH acce
    sudo docker logs --since 1h "$cid" 2>&1 | grep -iE 'Got connection|Got character ZDOID|PlatformUserID'
    ```
 
-   Match the connection line to the member by time and nickname, and check that its digits equal the ones in the ID they read in F2.
+   The log prints the bare number (`Got connection SteamID 7656…`, then `Got character ZDOID from <nickname>`), never the prefix. Match the lines to the member by time and nickname, and check that the digits equal the ones in the ID they read in F2.
 
    **ID format (Valheim 1.0 and later):** the entry is the full platform-prefixed ID exactly as the F2 panel shows it, case sensitive. For Steam players that is `V_<SteamID64>`, for example `V_76561198012345678`. A bare SteamID64, accepted before 1.0, is now silently ignored; most hosting guides still show the old form.
-3. Append the ID, one per line, nothing else on the line (no names, no comments):
+3. Append the ID, one per line, nothing else on the line (no names, no comments). The file ships with one `//` header line; leave it.
 
    ```bash
    echo '<id>' | sudo tee -a /data/valheim/config/adminlist.txt
    sudo cat /data/valheim/config/adminlist.txt
    ```
 
-4. Warn whoever is online, then restart the game: `sudo systemctl restart bonfire-game`. The world saves on stop; expect about a minute of downtime. The agent sees zero players meanwhile, which is harmless for a restart this short.
+4. Check that nobody is mid-session (`/bonfire check`), warn whoever is online, then restart the game: `sudo systemctl restart bonfire-game`. The world saves on stop; expect about a minute of downtime. The agent sees zero players meanwhile, which is harmless for a restart this short.
 5. Verify: the member reconnects, opens the console (F5) and runs `save`. An admin sees the save confirmation; a non-admin gets no effect. If it fails, compare prefix and case in `adminlist.txt` against the F2 panel, fix, and repeat step 4.
 6. Add the member to the table below in a PR.
 
