@@ -15,6 +15,7 @@ Bonfire starts and stops one dedicated game server VM on Azure from Discord slas
 | [docs/testing.md](docs/testing.md) | Test levels and fakes |
 | [tests/features/](tests/features/idle-shutdown.feature) | Gherkin scenarios for every behaviour |
 | [docs/prior-art.md](docs/prior-art.md) | Similar tools and the patterns borrowed from them |
+| [assets/](assets/README.md) | Icons and other brand images, and the rules for adding new ones |
 
 ## Running the pilot
 
